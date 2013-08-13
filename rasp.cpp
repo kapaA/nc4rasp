@@ -22,58 +22,67 @@ int main(int argc, char *argv[]) {
     string type(FLAGS_type);
     double density(FLAGS_density);
 
-
     std::cout << field << std::endl;    
     
-    if (type.compare("source") == 0) {
+    if (type.compare("source") == 0)
+    {
         
-        if (field.compare("binary") == 0) {
+        if (field.compare("binary") == 0)
+        {
 
-                typedef kodo::sparse_full_rlnc_encoder<fifi::binary> rlnc_encoder;
-                 Sender <rlnc_encoder> tx;
-                 tx.send();
+            typedef kodo::sparse_full_rlnc_encoder<fifi::binary> rlnc_encoder;
+            Sender <rlnc_encoder> tx;
+            tx.send();
+                 
+        }
+        else if (field.compare("binary8") == 0)
+        {
+
+            typedef kodo::sparse_full_rlnc_encoder<fifi::binary8> rlnc_encoder;
+            Sender <rlnc_encoder> tx;
+            tx.send();
 
         }
-        else if (field.compare("binary8") == 0) {
-
-                typedef kodo::sparse_full_rlnc_encoder<fifi::binary8> rlnc_encoder;
-                 Sender <rlnc_encoder> tx;
-                 tx.send();
-
-        }
-        else if (field.compare("binary16") == 0) {
-                typedef kodo::sparse_full_rlnc_encoder<fifi::binary16> rlnc_encoder;
-                 Sender <rlnc_encoder> tx;
-                 tx.send();
-
-             }
-
-
-  }else {
+        else if (field.compare("binary16") == 0)
+        {
             
-        if (field.compare("binary") == 0) {
+            typedef kodo::sparse_full_rlnc_encoder<fifi::binary16> rlnc_encoder;
+            Sender <rlnc_encoder> tx;
+            tx.send();
+
+        }
+
+
+    }
+    else
+    {
+            
+        if (field.compare("binary") == 0)
+        {
+            
             typedef kodo::full_rlnc_decoder<fifi::binary> rlnc_decoder;
             Receiver <rlnc_decoder> rx;
             rx.receive ();
+            
         }
-        else if (field.compare("binary8") == 0) {
+        else if (field.compare("binary8") == 0)
+        {
+            
             typedef kodo::full_rlnc_decoder<fifi::binary8> rlnc_decoder;
             Receiver <rlnc_decoder> rx;
             rx.receive ();
 
         }
-        else if (field.compare("binary16") == 0) {
+        else if (field.compare("binary16") == 0)
+        {
+            
             typedef kodo::full_rlnc_decoder <fifi::binary16> rlnc_decoder;
-             Receiver <rlnc_decoder> rx;
-             rx.receive ();
+            Receiver <rlnc_decoder> rx;
+            rx.receive ();
+            
         }
+        
     }
-
-
-       
-     
 
     return EXIT_SUCCESS;
 }
-
-
