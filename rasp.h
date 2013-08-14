@@ -56,6 +56,7 @@ public :
 typedef struct{
 	
     int field_size;      // 1 byte
+    
     char density;        // 1 byte
     uint16_t run_number;  // 2 bytes
     uint16_t symbol_size;   // 2 bytes

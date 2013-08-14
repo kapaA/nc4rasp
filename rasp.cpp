@@ -13,6 +13,8 @@ DEFINE_int32(symbol_size, 100, "");
 DEFINE_int32(symbols, 100, "");
 DEFINE_string(host, "localhost", "");
 DEFINE_int32(port, 5423, "");
+DEFINE_int32(iteration, 5423, "");
+DEFINE_int32(rate, 100, "the rate");
 DEFINE_string(type, "source", "source, dest, relay");
 
 int main(int argc, char *argv[]) {
@@ -21,8 +23,8 @@ int main(int argc, char *argv[]) {
     string field(FLAGS_field);
     string type(FLAGS_type);
     double density(FLAGS_density);
-
-    std::cout << field << std::endl;    
+	std::srand(std::time(0));
+    
     
     if (type.compare("source") == 0)
     {

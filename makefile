@@ -20,5 +20,5 @@ all:
 	#g++ -std=c++0x  BroadcastSender.cpp PracticalSocket.cpp -o broadcastsender -I $(boost_dir) -I $(fifi_dir) -I $(kodo_dir) -I $(sak_dir)
 	#g++ -std=c++0x  BroadcastReceiver.cpp PracticalSocket.cpp -o broadcastreceiver -I $(boost_dir) -I $(fifi_dir) -I $(kodo_dir) -I $(sak_dir)
 	#g++ main.cpp -o test --std=c++0x -I $(boost_dir) -I $(fifi_dir) -I $(kodo_dir) -I $(sak_dir)
-	g++ -std=c++0x   receiver.cpp sender.cpp rasp.cpp PracticalSocket.cpp -o rasp -I $(boost_dir) -I $(fifi_dir) -I $(kodo_dir) -I $(sak_dir) -lgflags
+	c++ -std=c++0x   receiver.cpp sender.cpp rasp.cpp PracticalSocket.cpp -o rasp -I $(boost_dir) -I $(fifi_dir) -I $(kodo_dir) -I $(sak_dir) -lgflags
 	

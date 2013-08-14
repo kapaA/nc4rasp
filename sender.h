@@ -7,6 +7,8 @@
 #include <iostream>           // For cout and cerr
 #include <cstdlib>            // For atoi()
 #include <vector>
+#include <chrono>
+#include <thread>
 #include <stdint.h>
 #include <kodo/rlnc/full_vector_codes.hpp>
 #ifdef WIN32
@@ -23,6 +25,8 @@ DECLARE_int32(port);
 DECLARE_int32(symbol_size);
 DECLARE_int32(symbols);
 DECLARE_double(density);
+DECLARE_int32(rate);
+DECLARE_int32(iteration);
 
 template<class Encoder>
 class Sender  
@@ -30,6 +34,8 @@ class Sender
 	int symbols;
     int symbol_size ;
 	string destAddress ;         // First arg:  destination address
+	int rate;
+	int iteration;
 	unsigned short destPort ;  // Second arg: destination port
 	double density;
 	typename Encoder::pointer m_encoder;
@@ -42,12 +48,15 @@ class Sender
         destAddress(FLAGS_host),
         destPort(FLAGS_port),
         density(FLAGS_density),
+        rate(FLAGS_rate),
+        iteration(FLAGS_iteration),
         m_encoder_factory(symbols, symbol_size)
     {
         m_encoder = m_encoder_factory.build();
         std::cout << "density " << density << std::endl;
         if (density > 0)
             m_encoder->set_density(density);
+		m_encoder->set_systematic_off();
     }
     
 	int send();
@@ -57,9 +66,9 @@ class Sender
 template<class T>
 int Sender<T>::send()
 {
+    
 	cout << "sender:" <<  endl;
 
-	  
     // Allocate some data to encode. In this case we make a buffer
     // with the same size as the encoder's block size (the max.
     // amount a single encoder can encode)
@@ -73,26 +82,39 @@ int Sender<T>::send()
     // Assign the data buffer to the encoder so that we may start
     // to produce encoded symbols from it
     m_encoder->set_symbols(sak::storage(data_in));
-    int x = 0;
+    int x = 1;
+    int interval = 1000/(1024*rate/symbol_size/8);
+    chrono::milliseconds dur (interval);
+    UDPSocket sock;
     
-    while (true) {
+    while (true) 
+    {
+        
         // Encode a packet into the payload buffer
         std::vector<uint8_t> payload(m_encoder->payload_size());
         m_encoder->encode( &payload[0] );
 
         payload.insert(payload.end(), (char *)&x, ((char *)&x) + 4);
-        std::cout << "x: "<< (int) x << std::endl; 
+        payload.insert(payload.end(), (char *)&iteration, ((char *)&iteration) + 4);
+        std::cout << "x: " << (int) x << std::endl; 
+        std::cout << "p: " << (int) payload[0] << std::endl;
+        std::cout << "iteration: " << (int) iteration << std::endl;
         x++;
-        try {
-            UDPSocket sock;
+        
+        try
+         {
       
             // Repeatedly send the string (not including \0) to the server
             sock.sendTo((char *)&payload[0], payload.size(), destAddress , destPort);
-            sleep(0.6);
-        } catch (SocketException &e) {
+            this_thread::sleep_for(dur);
+            
+         } catch (SocketException &e) 
+         {
+             
             cerr << e.what() << endl;
-            exit(1);
-        }
+            exit(0);
+            
+         }
 
     }
 
