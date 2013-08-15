@@ -96,9 +96,9 @@ int Sender<T>::send()
 
         payload.insert(payload.end(), (char *)&x, ((char *)&x) + 4);
         payload.insert(payload.end(), (char *)&iteration, ((char *)&iteration) + 4);
-        std::cout << "x: " << (int) x << std::endl; 
-        std::cout << "p: " << (int) payload[0] << std::endl;
-        std::cout << "iteration: " << (int) iteration << std::endl;
+        std::cout << "x:" << (int) x << std::endl; 
+        std::cout << "p:" << (int) payload[0] << std::endl;
+        std::cout << "iteration:" << (int) iteration << std::endl;
         x++;
         
         try

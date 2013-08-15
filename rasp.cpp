@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
     string type(FLAGS_type);
     double density(FLAGS_density);
 	std::srand(std::time(0));
-    
+    //std::srand(100);
     
     if (type.compare("source") == 0)
     {

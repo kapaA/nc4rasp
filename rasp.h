@@ -32,6 +32,7 @@ namespace kodo
                linear_block_encoder<
                storage_aware_encoder<
                // Coefficient Storage API
+
                coefficient_info<
                // Symbol Storage API
                deep_symbol_storage<
@@ -44,7 +45,7 @@ namespace kodo
                final_coder_factory_pool<
                // Final type
                sparse_full_rlnc_encoder<Field
-                   > > > > > > > > > > > > > > > > >
+                   > > > > > > > > > > > > > > > > > 
     { };
 }
 
@@ -56,7 +57,6 @@ public :
 typedef struct{
 	
     int field_size;      // 1 byte
-    
     char density;        // 1 byte
     uint16_t run_number;  // 2 bytes
     uint16_t symbol_size;   // 2 bytes

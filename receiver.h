@@ -65,26 +65,26 @@ int Receiver<T>::receive()
 	char recvString[MAXRCVSTRING + 1]; // Buffer for echo string + \0
 	string sourceAddress;              // Address of datagram source
 	unsigned short sourcePort;         // Port of datagram source
-	
+	int itr;
     while (!m_decoder->is_complete()) 
     {
         try 
         {
             
             int bytesRcvd = sock.recvFrom(recvString, MAXRCVSTRING, sourceAddress, sourcePort);
+     
             
-            std::vector<uint8_t> payload(bytesRcvd - 8);
-            
-            int itr = *((int *)(&recvString[bytesRcvd - 4]));
+            itr = *((int *)(&recvString[bytesRcvd - 4]));
             out = *((int *)(&recvString[bytesRcvd - 8]));
-            
-
+			if (iteration != itr)
+				{
+				continue;   
+				}
             cout << "rank:" << m_decoder->rank() << endl;
-            cout << "x :" << out << endl;
-            cout << "itr :" << itr << endl;
-            cout << "iteration :" << iteration << endl;
-         //   if (iteration != itr)
-			//	continue;
+            cout << "seq:" << out << endl;
+            cout << "itr:" << itr << endl;
+            cout << "iteration:" << iteration << endl;
+
 			
 			m_decoder->decode( (uint8_t*)&recvString[0] );	
             received_packets++;
@@ -100,11 +100,16 @@ int Receiver<T>::receive()
      
       
     }
+
+	cout << "rank:" << m_decoder->rank() << endl;
+	cout << "seq:" << out << endl;
+	cout << "itr:" << itr << endl;
+	cout << "iteration:" << iteration << endl;
     
     std::vector<uint8_t> data_out(m_decoder->block_size());
     m_decoder->copy_symbols(sak::storage(data_out));
     
-    std::cout << "transmitted:"<< out << std::endl;
+    std::cout << "last_transmitted_seq_num:"<< out << std::endl;
     cout << "received_packets:" << received_packets++ << endl;
   
     return 0;
