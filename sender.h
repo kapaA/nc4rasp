@@ -53,7 +53,7 @@ class Sender
         m_encoder_factory(symbols, symbol_size)
     {
         m_encoder = m_encoder_factory.build();
-        std::cout << "density " << density << std::endl;
+
         if (density > 0)
             m_encoder->set_density(density);
 		m_encoder->set_systematic_off();
