@@ -4,6 +4,8 @@
 #include "sender.h"
 #include "receiver.h"
 #include <kodo/rlnc/full_vector_codes.hpp>
+#include "boost/shared_ptr.hpp"
+#include "boost/random.hpp"
 
 using namespace std;
 
@@ -25,7 +27,7 @@ int main(int argc, char *argv[]) {
     double density(FLAGS_density);
 	std::srand(std::time(0));
     //std::srand(100);
-    
+
     if (type.compare("source") == 0)
     {
         

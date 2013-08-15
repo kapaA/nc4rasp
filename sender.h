@@ -55,7 +55,7 @@ class Sender
         m_encoder = m_encoder_factory.build();
 
         if (density > 0)
-            m_encoder->set_density(density);
+           m_encoder->set_density(density);
 		m_encoder->set_systematic_off();
     }
     

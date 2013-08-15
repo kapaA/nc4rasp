@@ -72,14 +72,15 @@ int Receiver<T>::receive()
         {
             
             int bytesRcvd = sock.recvFrom(recvString, MAXRCVSTRING, sourceAddress, sourcePort);
-     
             
             itr = *((int *)(&recvString[bytesRcvd - 4]));
             out = *((int *)(&recvString[bytesRcvd - 8]));
+            
 			if (iteration != itr)
 				{
 				continue;   
 				}
+				
             cout << "rank:" << m_decoder->rank() << endl;
             cout << "seq:" << out << endl;
             cout << "itr:" << itr << endl;
@@ -94,7 +95,7 @@ int Receiver<T>::receive()
         {
             
             cerr << e.what() << endl;
-                exit(1);
+            exit(1);
                 
         }
      

@@ -4,16 +4,16 @@
 # on your specific machine and will need to be updated.
 
 # The include path to the kodo sources
-kodo_dir = ../../src
+kodo_dir = ~/raspKodo/kodo/src
 
 # The include path to the sak sources
-sak_dir = ~/kodo/bundle_dependencies/sak-1bdcea/master/src/
+sak_dir = ~/raspKodo/kodo/bundle_dependencies/sak-1bdcea/master/src/
 
 # The include path to the fifi sources
-fifi_dir = ~/kodo/bundle_dependencies/fifi-8960fd/master/src/
+fifi_dir = ~/raspKodo/kodo/bundle_dependencies/fifi-8960fd/master/src/
 
 # The include path to the boost sources
-boost_dir = ~/kodo/bundle_dependencies/boost-11f274/master/
+boost_dir = ~/raspKodo/kodo/bundle_dependencies/boost-11f274/master/
 
 # Invoke the compiler
 all:
