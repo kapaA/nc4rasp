@@ -17,7 +17,8 @@
  *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#pragma once
+#ifndef __PRACTICALSOCKET_INCLUDED__
+#define __PRACTICALSOCKET_INCLUDED__
 
 #include <cstring>
 #include <cstdlib>
@@ -69,14 +70,14 @@ public:
    *   @return local address of socket
    *   @exception SocketException thrown if fetch fails
    */
-  string getLocalAddress();
+  string getLocalAddress() throw(SocketException);
 
   /**
    *   Get the local port
    *   @return local port of socket
    *   @exception SocketException thrown if fetch fails
    */
-  unsigned short getLocalPort();
+  unsigned short getLocalPort() throw(SocketException);
 
   /**
    *   Set the local port to the specified port and the local address
@@ -84,18 +85,18 @@ public:
    *   @param localPort local port
    *   @exception SocketException thrown if setting local port fails
    */
-  void setLocalPort(unsigned short localPort);
+  void setLocalPort(unsigned short localPort) throw(SocketException);
 
   /**
    *   Set the local port to the specified port and the local address
-   *   to the specified address.  If you omit the port, a random port
+   *   to the specified address.  If you omit the port, a random port 
    *   will be selected.
    *   @param localAddress local address
    *   @param localPort local port
    *   @exception SocketException thrown if setting local port or address fails
    */
-  void setLocalAddressAndPort(const string &localAddress,
-    unsigned short localPort = 0);
+  void setLocalAddressAndPort(const string &localAddress, 
+    unsigned short localPort = 0) throw(SocketException);
 
   /**
    *   If WinSock, unload the WinSock DLLs; otherwise do nothing.  We ignore
@@ -103,14 +104,14 @@ public:
    *   completeness.  If you are running on Windows and you are concerned
    *   about DLL resource consumption, call this after you are done with all
    *   Socket instances.  If you execute this on Windows while some instance of
-   *   Socket exists, you are toast.  For portability of client code, this is
+   *   Socket exists, you are toast.  For portability of client code, this is 
    *   an empty function on non-Windows platforms so you can always include it.
    *   @param buffer buffer to receive the data
    *   @param bufferLen maximum number of bytes to read into buffer
    *   @return number of bytes read, 0 for EOF, and -1 for error
    *   @exception SocketException thrown WinSock clean up fails
    */
-  static void cleanUp();
+  static void cleanUp() throw(SocketException);
 
   /**
    *   Resolve the specified service for the specified protocol to the
@@ -128,7 +129,7 @@ private:
 
 protected:
   int sockDesc;              // Socket descriptor
-  Socket(int type, int protocol);
+  Socket(int type, int protocol) throw(SocketException);
   Socket(int sockDesc);
 };
 
@@ -145,7 +146,7 @@ public:
    *   @exception SocketException thrown if unable to establish connection
    */
   void connect(const string &foreignAddress, unsigned short foreignPort)
-   ;
+    throw(SocketException);
 
   /**
    *   Write the given buffer to this socket.  Call connect() before
@@ -154,7 +155,7 @@ public:
    *   @param bufferLen number of bytes from buffer to be written
    *   @exception SocketException thrown if unable to send data
    */
-  void send(const void *buffer, int bufferLen);
+  void send(const void *buffer, int bufferLen) throw(SocketException);
 
   /**
    *   Read into the given buffer up to bufferLen bytes data from this
@@ -164,24 +165,24 @@ public:
    *   @return number of bytes read, 0 for EOF, and -1 for error
    *   @exception SocketException thrown if unable to receive data
    */
-  int recv(void *buffer, int bufferLen);
+  int recv(void *buffer, int bufferLen) throw(SocketException);
 
   /**
    *   Get the foreign address.  Call connect() before calling recv()
    *   @return foreign address
    *   @exception SocketException thrown if unable to fetch foreign address
    */
-  string getForeignAddress();
+  string getForeignAddress() throw(SocketException);
 
   /**
    *   Get the foreign port.  Call connect() before calling recv()
    *   @return foreign port
    *   @exception SocketException thrown if unable to fetch foreign port
    */
-  unsigned short getForeignPort();
+  unsigned short getForeignPort() throw(SocketException);
 
 protected:
-  CommunicatingSocket(int type, int protocol);
+  CommunicatingSocket(int type, int protocol) throw(SocketException);
   CommunicatingSocket(int newConnSD);
 };
 
@@ -194,7 +195,7 @@ public:
    *   Construct a TCP socket with no connection
    *   @exception SocketException thrown if unable to create TCP socket
    */
-  TCPSocket();
+  TCPSocket() throw(SocketException);
 
   /**
    *   Construct a TCP socket with a connection to the given foreign address
@@ -203,8 +204,8 @@ public:
    *   @param foreignPort foreign port
    *   @exception SocketException thrown if unable to create TCP socket
    */
-  TCPSocket(const string &foreignAddress, unsigned short foreignPort)
-     ;
+  TCPSocket(const string &foreignAddress, unsigned short foreignPort) 
+      throw(SocketException);
 
 private:
   // Access for TCPServerSocket::accept() connection creation
@@ -222,34 +223,34 @@ public:
    *   on the specified port on any interface
    *   @param localPort local port of server socket, a value of zero will
    *                   give a system-assigned unused port
-   *   @param queueLen maximum queue length for outstanding
+   *   @param queueLen maximum queue length for outstanding 
    *                   connection requests (default 5)
    *   @exception SocketException thrown if unable to create TCP server socket
    */
-  TCPServerSocket(unsigned short localPort, int queueLen = 5)
-     ;
+  TCPServerSocket(unsigned short localPort, int queueLen = 5) 
+      throw(SocketException);
 
   /**
    *   Construct a TCP socket for use with a server, accepting connections
    *   on the specified port on the interface specified by the given address
    *   @param localAddress local interface (address) of server socket
    *   @param localPort local port of server socket
-   *   @param queueLen maximum queue length for outstanding
+   *   @param queueLen maximum queue length for outstanding 
    *                   connection requests (default 5)
    *   @exception SocketException thrown if unable to create TCP server socket
    */
   TCPServerSocket(const string &localAddress, unsigned short localPort,
-      int queueLen = 5);
+      int queueLen = 5) throw(SocketException);
 
   /**
    *   Blocks until a new connection is established on this socket or error
    *   @return new connection socket
    *   @exception SocketException thrown if attempt to accept a new connection fails
    */
-  TCPSocket *accept();
+  TCPSocket *accept() throw(SocketException);
 
 private:
-  void setListen(int queueLen);
+  void setListen(int queueLen) throw(SocketException);
 };
 
 /**
@@ -261,14 +262,14 @@ public:
    *   Construct a UDP socket
    *   @exception SocketException thrown if unable to create UDP socket
    */
-  UDPSocket();
+  UDPSocket() throw(SocketException);
 
   /**
    *   Construct a UDP socket with the given local port
    *   @param localPort local port
    *   @exception SocketException thrown if unable to create UDP socket
    */
-  UDPSocket(unsigned short localPort);
+  UDPSocket(unsigned short localPort) throw(SocketException);
 
   /**
    *   Construct a UDP socket with the given local port and address
@@ -276,15 +277,15 @@ public:
    *   @param localPort local port
    *   @exception SocketException thrown if unable to create UDP socket
    */
-  UDPSocket(const string &localAddress, unsigned short localPort)
-     ;
+  UDPSocket(const string &localAddress, unsigned short localPort) 
+      throw(SocketException);
 
   /**
    *   Unset foreign address and port
    *   @return true if disassociation is successful
    *   @exception SocketException thrown if unable to disconnect UDP socket
    */
-  void disconnect();
+  void disconnect() throw(SocketException);
 
   /**
    *   Send the given buffer as a UDP datagram to the
@@ -297,7 +298,7 @@ public:
    *   @exception SocketException thrown if unable to send datagram
    */
   void sendTo(const void *buffer, int bufferLen, const string &foreignAddress,
-            unsigned short foreignPort);
+            unsigned short foreignPort) throw(SocketException);
 
   /**
    *   Read read up to bufferLen bytes data from this socket.  The given buffer
@@ -309,30 +310,32 @@ public:
    *   @return number of bytes received and -1 for error
    *   @exception SocketException thrown if unable to receive datagram
    */
-  int recvFrom(void *buffer, int bufferLen, string &sourceAddress,
-               unsigned short &sourcePort);
+  int recvFrom(void *buffer, int bufferLen, string &sourceAddress, 
+               unsigned short &sourcePort) throw(SocketException);
 
   /**
    *   Set the multicast TTL
    *   @param multicastTTL multicast TTL
    *   @exception SocketException thrown if unable to set TTL
    */
-  void setMulticastTTL(unsigned char multicastTTL);
+  void setMulticastTTL(unsigned char multicastTTL) throw(SocketException);
 
   /**
    *   Join the specified multicast group
    *   @param multicastGroup multicast group address to join
    *   @exception SocketException thrown if unable to join group
    */
-  void joinGroup(const string &multicastGroup);
+  void joinGroup(const string &multicastGroup) throw(SocketException);
 
   /**
    *   Leave the specified multicast group
    *   @param multicastGroup multicast group address to leave
    *   @exception SocketException thrown if unable to leave group
    */
-  void leaveGroup(const string &multicastGroup);
+  void leaveGroup(const string &multicastGroup) throw(SocketException);
 
 private:
   void setBroadcast();
 };
+
+#endif

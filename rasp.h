@@ -1,8 +1,12 @@
-#pragma once
+#ifndef RASP
+#define RASP
 
-#include <cstdint>
-#include <string>
 
+#include "PracticalSocket.h"  // For UDPSocket and SocketException
+#include <iostream>           // For cout and cerr
+#include <cstdlib>            // For atoi()
+#include <vector>
+#include <stdint.h>
 #include <kodo/rlnc/full_vector_codes.hpp>
 #include <kodo/sparse_uniform_generator.hpp>
 
@@ -41,37 +45,37 @@ namespace kodo
                final_coder_factory_pool<
                // Final type
                sparse_full_rlnc_encoder<Field
-                   > > > > > > > > > > > > > > > > >
+                   > > > > > > > > > > > > > > > > > 
     { };
 }
 
-/*class Rasp
-{
-    public :
-    typedef struct
-    {
-
-        int field_size;      // 1 byte
-        char density;        // 1 byte
-        uint16_t run_number;  // 2 bytes
-        uint16_t symbol_size;   // 2 bytes
-        uint16_t symbol;      // 2bytes
-
-        std::string destAddress;
-        unsigned short destPort;
-        char* sendChar;
-
-    } rpiConf;
+class Rasp{
 
 
-    typedef enum
-    {
-	    TX_SUCSESS = 0,
-	    TX_FAILURE = 1,
 
-	    CONFIG_SUCSESS = 2,
+public :
+typedef struct{
+	
+    int field_size;      // 1 byte
+    char density;        // 1 byte
+    uint16_t run_number;  // 2 bytes
+    uint16_t symbol_size;   // 2 bytes
+    uint16_t symbol;      // 2bytes
+    
+    string destAddress;
+    unsigned short destPort;
+    char* sendChar;    
+    
+}rpiConf;
 
-    } GLOBRET;
 
-};*/
+typedef enum{
+	TX_SUCSESS = 0,
+	TX_FAILURE = 1,
+	
+	CONFIG_SUCSESS = 2,
+	
+}GLOBRET;
 
+};
+#endif 	

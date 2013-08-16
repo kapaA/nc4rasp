@@ -1,103 +1,92 @@
+#include <cstdlib>
+#include <gflags/gflags.h>
 #include "rasp.h"
 #include "sender.h"
 #include "receiver.h"
-
-#include <boost/program_options.hpp>
+#include <kodo/rlnc/full_vector_codes.hpp>
+#include "boost/shared_ptr.hpp"
+#include "boost/random.hpp"
 
 using namespace std;
 
-namespace po = boost::program_options;
+DEFINE_double(density, 0, "");
+DEFINE_string(field, "", "binary, binary8, binary16");
+DEFINE_int32(symbol_size, 100, "");
+DEFINE_int32(symbols, 100, "");
+DEFINE_string(host, "localhost", "");
+DEFINE_int32(port, 5423, "");
+DEFINE_int32(iteration, 5423, "");
+DEFINE_int32(rate, 100, "the rate");
+DEFINE_string(type, "source", "source, dest, relay");
 
-int main(int argc, char *argv[])
-{
-    srand((uint32_t)time(0));
+int main(int argc, char *argv[]) {
+   
+    google::ParseCommandLineFlags(&argc, &argv, true);
+    string field(FLAGS_field);
+    string type(FLAGS_type);
+    double density(FLAGS_density);
+	std::srand(std::time(0));
+    //std::srand(100);
 
-    try
+    if (type.compare("source") == 0)
     {
-        // Network options
-        string type = "source";
-        string host = "localhost";
-        int port = 5423;
-        int rate = 100;
-        int iteration = 0;
-
-        // Coding options
-        string field = "binary";
-        int symbols = 100;
-        int symbol_size = 100;
-        double density = 0.0;
-
-        po::options_description desc("Allowed options");
-        desc.add_options()
-            ("help", "produce help message")
-            ("type", po::value<string>(&type), "node type: source, dest, relay")
-            ("host", po::value<string>(&host), "remote host")
-            ("port", po::value<int>(&port), "protocol port")
-            ("rate", po::value<int>(&rate), "sending rate [kilobytes/sec]")
-            ("iteration", po::value<int>(&iteration), "current iteration")
-            ("field", po::value<string>(&field), "field: binary, binary8, binary16")
-            ("symbols", po::value<int>(&symbols), "number of symbols")
-            ("symbol_size", po::value<int>(&symbol_size), "symbol size")
-            ("density", po::value<double>(&density), "coding vector density");
-
-        po::variables_map vm;
-        po::store(po::parse_command_line(argc, argv , desc), vm);
-        po::notify(vm);
-
-        if (vm.count("help"))
+        
+        if (field.compare("binary") == 0)
         {
-            std::cout << desc << std::endl;
-            return 1;
+
+            typedef kodo::sparse_full_rlnc_encoder<fifi::binary> rlnc_encoder;
+            Sender <rlnc_encoder> tx;
+            tx.send();
+                 
+        }
+        else if (field.compare("binary8") == 0)
+        {
+
+            typedef kodo::sparse_full_rlnc_encoder<fifi::binary8> rlnc_encoder;
+            Sender <rlnc_encoder> tx;
+            tx.send();
+
+        }
+        else if (field.compare("binary16") == 0)
+        {
+            
+            typedef kodo::sparse_full_rlnc_encoder<fifi::binary16> rlnc_encoder;
+            Sender <rlnc_encoder> tx;
+            tx.send();
+
         }
 
-        if (type == "source")
-        {
-            if (field == "binary")
-            {
-                typedef kodo::sparse_full_rlnc_encoder<fifi::binary> rlnc_encoder;
-                send<rlnc_encoder>(host, port, rate, iteration,
-                                   symbols, symbol_size, density);
-            }
-            else if (field == "binary8")
-            {
-                typedef kodo::sparse_full_rlnc_encoder<fifi::binary8> rlnc_encoder;
-                send<rlnc_encoder>(host, port, rate, iteration,
-                                   symbols, symbol_size, density);
-            }
-            else if (field == "binary16")
-            {
-                typedef kodo::sparse_full_rlnc_encoder<fifi::binary16> rlnc_encoder;
-                send<rlnc_encoder>(host, port, rate, iteration,
-                                   symbols, symbol_size, density);
-            }
-        }
-        else
-        {
-            if (field == "binary")
-            {
-                typedef kodo::full_rlnc_decoder<fifi::binary> rlnc_decoder;
-                receive<rlnc_decoder>(port, iteration, symbols, symbol_size);
-            }
-            else if (field == "binary8")
-            {
-                typedef kodo::full_rlnc_decoder<fifi::binary8> rlnc_decoder;
-                receive<rlnc_decoder>(port, iteration, symbols, symbol_size);
-            }
-            else if (field == "binary16")
-            {
-                typedef kodo::full_rlnc_decoder<fifi::binary16> rlnc_decoder;
-                receive<rlnc_decoder>(port, iteration, symbols, symbol_size);
-            }
-        }
+
     }
-    catch (std::exception& e)
+    else
     {
-        std::cerr << "Error: " << e.what() << "\n";
-    }
-    catch(...)
-    {
-        std::cerr << "Exception of unknown type!\n";
+            
+        if (field.compare("binary") == 0)
+        {
+            
+            typedef kodo::full_rlnc_decoder<fifi::binary> rlnc_decoder;
+            Receiver <rlnc_decoder> rx;
+            rx.receive ();
+            
+        }
+        else if (field.compare("binary8") == 0)
+        {
+            
+            typedef kodo::full_rlnc_decoder<fifi::binary8> rlnc_decoder;
+            Receiver <rlnc_decoder> rx;
+            rx.receive ();
+
+        }
+        else if (field.compare("binary16") == 0)
+        {
+            
+            typedef kodo::full_rlnc_decoder <fifi::binary16> rlnc_decoder;
+            Receiver <rlnc_decoder> rx;
+            rx.receive ();
+            
+        }
+        
     }
 
-    return 0;
+    return EXIT_SUCCESS;
 }
