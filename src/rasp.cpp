@@ -20,6 +20,7 @@ int main(int argc, char *argv[])
         int port = 5423;
         int rate = 100;
         int iteration = 0;
+        int max_tx = 1000000;
 
         // Coding options
         string field = "binary";
@@ -35,6 +36,7 @@ int main(int argc, char *argv[])
             ("port", po::value<int>(&port), "protocol port")
             ("rate", po::value<int>(&rate), "sending rate [kilobytes/sec]")
             ("iteration", po::value<int>(&iteration), "current iteration")
+            ("max_tx", po::value<int>(&max_tx), "maximum transmissions")
             ("field", po::value<string>(&field), "field: binary, binary8, binary16")
             ("symbols", po::value<int>(&symbols), "number of symbols")
             ("symbol_size", po::value<int>(&symbol_size), "symbol size")
@@ -55,19 +57,19 @@ int main(int argc, char *argv[])
             if (field == "binary")
             {
                 typedef kodo::sparse_full_rlnc_encoder<fifi::binary> rlnc_encoder;
-                send<rlnc_encoder>(host, port, rate, iteration,
+                send<rlnc_encoder>(host, port, rate, iteration, max_tx,
                                    symbols, symbol_size, density);
             }
             else if (field == "binary8")
             {
                 typedef kodo::sparse_full_rlnc_encoder<fifi::binary8> rlnc_encoder;
-                send<rlnc_encoder>(host, port, rate, iteration,
+                send<rlnc_encoder>(host, port, rate, iteration, max_tx,
                                    symbols, symbol_size, density);
             }
             else if (field == "binary16")
             {
                 typedef kodo::sparse_full_rlnc_encoder<fifi::binary16> rlnc_encoder;
-                send<rlnc_encoder>(host, port, rate, iteration,
+                send<rlnc_encoder>(host, port, rate, iteration, max_tx,
                                    symbols, symbol_size, density);
             }
         }

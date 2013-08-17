@@ -2,7 +2,7 @@
 
 #include <cstdint>
 #include <iostream>           // For cout and cerr
-#include <cstdlib>            // For atoi()
+#include <cstdlib>            // For time()
 #include <string>
 #include <vector>
 
@@ -17,6 +17,7 @@ int send(std::string destAddress,
          int destPort,
          int rate,
          int iteration,
+         int max_tx,
          int symbols,
          int symbol_size,
          double density)
@@ -30,6 +31,7 @@ int send(std::string destAddress,
         m_encoder->set_density(density);
 
     m_encoder->set_systematic_off();
+    m_encoder->seed((uint32_t)time(0));
 
 	cout << "sender:" <<  endl;
 
@@ -51,8 +53,10 @@ int send(std::string destAddress,
     boost::chrono::milliseconds dur(interval);
     UDPSocket sock;
 
-    while (true)
+    int i = 0;
+    while (i < max_tx)
     {
+        i++;
         // Encode a packet into the payload buffer
         std::vector<uint8_t> payload(m_encoder->payload_size());
         m_encoder->encode( &payload[0] );
