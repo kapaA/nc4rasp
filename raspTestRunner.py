@@ -42,7 +42,11 @@ def run_cmd_source(args):
 
 
 def run_cmd_destination(args):
+<<<<<<< HEAD
     rank_list = [0]*(args.symbol_size+1);
+=======
+    rank_list = [0]*args.symbol_size;
+>>>>>>> ca879df797a8efd18a757b37952fe4e06371236f
     complete_time_app = list()	
     transmited = list()
     
@@ -60,7 +64,12 @@ def run_cmd_destination(args):
         cmd +=["-iteration={}".format(run)]
         cmd +=["-type={}".format(args.role_type)]
         #cmd +=["-max_tx={}".format(args.max_tx)]
+<<<<<<< HEAD
 
+=======
+        
+        cmd = ["sudo","./rasp","-host=''", "-type=receiver", "-field=binary","-iteration={}".format(run)]
+>>>>>>> ca879df797a8efd18a757b37952fe4e06371236f
         print cmd
         e = open("errors", "w")
         runCmd = subprocess.Popen(cmd, stdout=tOut,  stderr=e);
@@ -93,6 +102,10 @@ def run_cmd_destination(args):
 
     dOut=open('{}_{}_{}_rankList.log'.format(args.nodeID,args.field, args.role_type),'w')
     for item in rank_list:
+<<<<<<< HEAD
+=======
+        print item
+>>>>>>> ca879df797a8efd18a757b37952fe4e06371236f
         dOut.write("%s\n" % item)
     dOut.close
     
@@ -106,6 +119,7 @@ def run_cmd_destination(args):
         dOut.write("%s\n" % item)
     dOut.close
     
+<<<<<<< HEAD
     print "the number of transmited packets "		
     print transmited
     
@@ -115,6 +129,8 @@ def run_cmd_destination(args):
     print "the number linear dep"
     print rank_list
     
+=======
+>>>>>>> ca879df797a8efd18a757b37952fe4e06371236f
 def main():
 
     global cmd; 
