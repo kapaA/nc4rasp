@@ -7,9 +7,6 @@ from time import sleep
 cmd = [];
 run = 0;
 
-
-
-
 def stats(data):
 	sum = 0.0
 	for value in data:
@@ -23,7 +20,6 @@ def meanstdv(x):
 		mean = mean + a 
 	mean = mean / float(n)
 	return mean
-
 
 def run_cmd_source(args):
     
