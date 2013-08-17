@@ -18,6 +18,7 @@ DEFINE_int32(port, 5423, "");
 DEFINE_int32(iteration, 5423, "");
 DEFINE_int32(rate, 100, "the rate");
 DEFINE_string(type, "source", "source, dest, relay");
+DEFINE_int32(max_tx, 1000000, "");
 
 int main(int argc, char *argv[]) {
    

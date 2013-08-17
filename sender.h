@@ -27,6 +27,7 @@ DECLARE_int32(symbols);
 DECLARE_double(density);
 DECLARE_int32(rate);
 DECLARE_int32(iteration);
+DECLARE_int32(max_tx);
 
 template<class Encoder>
 class Sender  
@@ -35,6 +36,7 @@ class Sender
     int symbol_size ;
 	string destAddress ;         // First arg:  destination address
 	int rate;
+	int max_tx;
 	int iteration;
 	unsigned short destPort ;  // Second arg: destination port
 	double density;
@@ -50,13 +52,17 @@ class Sender
         density(FLAGS_density),
         rate(FLAGS_rate),
         iteration(FLAGS_iteration),
+        max_tx(FLAGS_max_tx),
         m_encoder_factory(symbols, symbol_size)
     {
         m_encoder = m_encoder_factory.build();
 
         if (density > 0)
            m_encoder->set_density(density);
-		m_encoder->set_systematic_off();
+		
+        m_encoder->set_systematic_off();
+        m_encoder->seed(time(0));
+        
     }
     
 	int send();
@@ -86,10 +92,11 @@ int Sender<T>::send()
     int interval = 1000/(1024*rate/symbol_size/8);
     chrono::milliseconds dur (interval);
     UDPSocket sock;
+    int i = 0;
     
-    while (true) 
+    while (i < max_tx) 
     {
-        
+        i++;
         // Encode a packet into the payload buffer
         std::vector<uint8_t> payload(m_encoder->payload_size());
         m_encoder->encode( &payload[0] );
