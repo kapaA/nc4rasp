@@ -42,8 +42,7 @@ def run_cmd_source(args):
 
 
 def run_cmd_destination(args):
-
-    rank_list = [0]*args.symbol_size;
+    rank_list = [0]*(args.symbol_size+1);
     complete_time_app = list()	
     transmited = list()
     
@@ -54,14 +53,14 @@ def run_cmd_destination(args):
 
         cmd =["./{}".format(args.prog)]
         cmd +=["-field={}".format(args.field)]
-        cmd +=["-symbol_size={}".format(args.symbol_size)]
-        cmd +=["-symbols={}".format(args.symbols)]
+        #cmd +=["-symbol_size={}".format(args.symbol_size)]
+        #cmd +=["-symbols={}".format(args.symbols)]
         cmd +=["-host={}".format(args.host)]
         #cmd +=["-port={}".format(args.port)]
         cmd +=["-iteration={}".format(run)]
         cmd +=["-type={}".format(args.role_type)]
         #cmd +=["-max_tx={}".format(args.max_tx)]
-        
+
         print cmd
         e = open("errors", "w")
         runCmd = subprocess.Popen(cmd, stdout=tOut,  stderr=e);
@@ -94,7 +93,6 @@ def run_cmd_destination(args):
 
     dOut=open('{}_{}_{}_rankList.log'.format(args.nodeID,args.field, args.role_type),'w')
     for item in rank_list:
-        print item
         dOut.write("%s\n" % item)
     dOut.close
     
@@ -107,7 +105,7 @@ def run_cmd_destination(args):
     for item in transmited:
         dOut.write("%s\n" % item)
     dOut.close
-
+    
     print "the number of transmited packets "		
     print transmited
     
