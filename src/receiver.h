@@ -10,12 +10,16 @@
 
 using namespace std;
 
-void print_ranks(vector<size_t> &ranks)
+void print_result(vector<size_t> &ranks, size_t rx, size_t seq)
 {
-    cout << "{'ranks': [";
+    cout << "{" << endl;
+    cout << "  'ranks': [";
     for (auto i : ranks)
         cout << i << ",";
-    cout << "], }" << endl;
+    cout << "]," << endl;
+    cout << "  'received_packets': " << rx << "," << endl;
+    cout << "  'last_transmitted_seq_num': " << seq << "," << endl;
+    cout << "}" << endl;
 }
 
 template<class Decoder>
@@ -88,7 +92,7 @@ int receive(int destPort,
     }
     else
     {
-        print_ranks(ranks);
+        print_result(ranks, ++received_packets, seq);
     }
 
     return 0;
