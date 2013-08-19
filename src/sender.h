@@ -20,7 +20,8 @@ int send(std::string destAddress,
          int max_tx,
          int symbols,
          int symbol_size,
-         double density)
+         double density,
+         string &output)
 {
     typename Encoder::pointer m_encoder;
     typename Encoder::factory m_encoder_factory(symbols, symbol_size);
@@ -33,7 +34,8 @@ int send(std::string destAddress,
     m_encoder->set_systematic_off();
     m_encoder->seed((uint32_t)time(0));
 
-	cout << "sender:" <<  endl;
+    if (output == "verbose")
+        cout << "sender:" <<  endl;
 
     // Allocate some data to encode. In this case we make a buffer
     // with the same size as the encoder's block size (the max.
@@ -63,9 +65,14 @@ int send(std::string destAddress,
 
         payload.insert(payload.end(), (char *)&x, ((char *)&x) + 4);
         payload.insert(payload.end(), (char *)&iteration, ((char *)&iteration) + 4);
-        std::cout << "x:" << (int) x << std::endl;
-        std::cout << "p:" << (int) payload[0] << std::endl;
-        std::cout << "iteration:" << (int) iteration << std::endl;
+
+        if (output == "verbose")
+        {
+            std::cout << "x:" << (int) x << std::endl;
+            std::cout << "p:" << (int) payload[0] << std::endl;
+            std::cout << "iteration:" << (int) iteration << std::endl;
+        }
+
         x++;
 
         try
