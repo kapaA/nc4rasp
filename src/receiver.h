@@ -42,7 +42,7 @@ int receive(int destPort,
     string sourceAddress;              // Address of datagram source
     unsigned short sourcePort;         // Port of datagram source
     int itr, rank;
-    vector<size_t> ranks(symbols + 1);
+    vector<size_t> ranks(symbols);
 
     while (!m_decoder->is_complete())
     {
@@ -51,8 +51,8 @@ int receive(int destPort,
             int bytesRcvd = sock.recvFrom(recvString, MAXRCVSTRING,
                                           sourceAddress, sourcePort);
 
-            itr = *((int *)(&recvString[bytesRcvd - 4]));
-            seq = *((int *)(&recvString[bytesRcvd - 8]));
+            itr = *((int *)(&recvString[bytesRcvd - 4])); //Iteration
+            seq = *((int *)(&recvString[bytesRcvd - 8])); //Sequence number
 
             if (iteration != itr)
             {
@@ -65,13 +65,21 @@ int receive(int destPort,
                 cout << "itr:" << itr << endl;
                 cout << "iteration:" << iteration << endl;
             }
+			
 
-            rank = m_decoder->rank();
-            m_decoder->decode( (uint8_t*)&recvString[0] );
-            received_packets++;
+		    rank = m_decoder->rank();
+		    m_decoder->decode( (uint8_t*)&recvString[0] );
+		    //received_packets++;
+			
+			//cout << "rank: " << rank << endl; //DEBUG!
+			//cout << "m_decoder->rank(): " << m_decoder->rank() << endl;
+			//cout << "decoder_completion: " << m_decoder->is_complete() << endl; //DEBUG!
+			//cout << "seq:" << seq << endl; //DEBUG!
+			received_packets++;
+			//cout << "received_packets: " << received_packets << endl << endl;		
 
-            if (rank == m_decoder->rank())
-                ranks[rank]++;
+            if (rank == m_decoder->rank()) //If rank has not changed the received package is liniar dependent              
+				ranks[rank]++; //Add a linear dependent cnt to this spot
         }
         catch (SocketException &e)
         {
@@ -92,7 +100,7 @@ int receive(int destPort,
     }
     else
     {
-        print_result(ranks, ++received_packets, seq);
+        print_result(ranks, received_packets, seq);
     }
 
     return 0;
