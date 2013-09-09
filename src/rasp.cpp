@@ -1,6 +1,7 @@
 #include "rasp.h"
 #include "sender.h"
 #include "receiver.h"
+#include "relay.h"
 
 #include <boost/program_options.hpp>
 
@@ -75,7 +76,7 @@ int main(int argc, char *argv[])
                                    symbols, symbol_size, density, output);
             }
         }
-        else
+        else if (type == "destination")
         {
             if (field == "binary")
             {
@@ -91,6 +92,24 @@ int main(int argc, char *argv[])
             {
                 typedef kodo::full_rlnc_decoder<fifi::binary16> rlnc_decoder;
                 receive<rlnc_decoder>(port, iteration, symbols, symbol_size, output);
+            }
+        }
+        else 
+        {
+            if (field == "binary")
+            {
+                typedef kodo::full_rlnc_decoder<fifi::binary> rlnc_decoder;
+                forward<rlnc_decoder>(host,port, rate, iteration, symbols, symbol_size, max_tx, output);
+            }
+            else if (field == "binary8")
+            {
+                typedef kodo::full_rlnc_decoder<fifi::binary8> rlnc_decoder;
+                forward<rlnc_decoder>(host,port, rate, iteration, symbols, symbol_size, max_tx, output);
+            }
+            else if (field == "binary16")
+            {
+                typedef kodo::full_rlnc_decoder<fifi::binary16> rlnc_decoder;
+                forward<rlnc_decoder>(host, port, rate, iteration, symbols, symbol_size, max_tx, output);
             }
         }
     }
