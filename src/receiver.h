@@ -27,6 +27,7 @@ int receive(int destPort,
             int iteration,
             int symbols,
             int symbol_size,
+            double loss,
             string &output)
 {
     typename Decoder::pointer m_decoder;
@@ -54,7 +55,7 @@ int receive(int destPort,
             itr = *((int *)(&recvString[bytesRcvd - 4])); //Iteration
             seq = *((int *)(&recvString[bytesRcvd - 8])); //Sequence number
 
-            if (iteration != itr)
+            if (iteration != itr || std::rand ()%100 + 1 < loss)
             {
                 continue;
             }

@@ -21,6 +21,7 @@ int forward(std::string destAddress,
             int symbols,
             int symbol_size,
             int max_tx,
+            double loss,
             string &output)
 {
     typename Decoder::pointer m_decoder;
@@ -49,11 +50,11 @@ int forward(std::string destAddress,
             itr = *((int *)(&recvString[bytesRcvd - 4])); //Iteration
             seq = *((int *)(&recvString[bytesRcvd - 8])); //Sequence number
 
-            if (iteration != itr)
+			if (iteration != itr || std::rand ()%100 + 1 < loss)
             {
                 continue;
             }
-
+            
             if (output == "verbose") {
                 cout << "rank:" << m_decoder->rank() << endl;
                 cout << "seq:" << seq << endl;
