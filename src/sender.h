@@ -21,12 +21,15 @@ int send(std::string destAddress,
          int symbols,
          int symbol_size,
          double density,
-         string &output)
+         string &output,
+         int id)
 {
     typename Encoder::pointer m_encoder;
     typename Encoder::factory m_encoder_factory(symbols, symbol_size);
 
     m_encoder = m_encoder_factory.build();
+
+
 
     if (density > 0)
         m_encoder->set_density(density);
@@ -65,6 +68,7 @@ int send(std::string destAddress,
 
         payload.insert(payload.end(), (char *)&x, ((char *)&x) + 4);
         payload.insert(payload.end(), (char *)&iteration, ((char *)&iteration) + 4);
+        payload.insert(payload.end(), (char *)&id, ((char *)&id) + 4);
 
         if (output == "verbose")
         {
