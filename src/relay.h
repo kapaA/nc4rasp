@@ -288,7 +288,7 @@ int playNcool()
 		    if (rank == t && flage == false)
 		    {
 				
-				flage == true;
+				flage = true;
 				std::cout << "start helper" << endl;
 				boost::thread t(&relay::start_helper, this);	
 			
