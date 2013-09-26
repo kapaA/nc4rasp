@@ -27,8 +27,11 @@ int receive(int destPort,
             int iteration,
             int symbols,
             int symbol_size,
-            double loss,
-            string &output)
+			double e1,
+			double e2,
+			double e3,
+			string &output,
+            int id)
 {
     typename Decoder::pointer m_decoder;
     typename Decoder::factory m_decoder_factory(symbols, symbol_size);
@@ -44,27 +47,60 @@ int receive(int destPort,
     unsigned short sourcePort;         // Port of datagram source
     int itr, rank;
     vector<size_t> ranks(symbols);
-
+	int sourceID;
+	int source = 1;
+	int recevied_src;
+	int recevied_rly;
+	int tx_rly;
+	int tx_src;
+	
+	
     while (!m_decoder->is_complete())
     {
         try
         {
             int bytesRcvd = sock.recvFrom(recvString, MAXRCVSTRING,
                                           sourceAddress, sourcePort);
+                                          
+			sourceID = *((int *)(&recvString[bytesRcvd - 4])); //source ID
+            itr = *((int *)(&recvString[bytesRcvd - 8])); //Iteration
+            seq = *((int *)(&recvString[bytesRcvd - 12])); //Sequence number
 
-            itr = *((int *)(&recvString[bytesRcvd - 4])); //Iteration
-            seq = *((int *)(&recvString[bytesRcvd - 8])); //Sequence number
-
-            if (iteration != itr || std::rand ()%100 + 1 < loss)
+            if (iteration != itr || (std::rand ()%100 + 1 < e3 && sourceID == source))
             {
                 continue;
             }
+
+            if (std::rand ()%100 + 1 < e2 && sourceID != source)
+            {
+                continue;
+            }
+
+            if (sourceID == source)
+            {
+				recevied_src++;
+				tx_src = seq;
+            }
+
+            if (sourceID != source)
+            {
+				recevied_rly++;
+				tx_rly = seq;
+            }
+
+
 
             if (output == "verbose") {
                 cout << "rank:" << m_decoder->rank() << endl;
                 cout << "seq:" << seq << endl;
                 cout << "itr:" << itr << endl;
                 cout << "iteration:" << iteration << endl;
+                cout << "source ID:" << sourceID << endl;
+                cout << "e3:" << e3 << endl;
+				cout << "received from source: " << recevied_src << endl;
+				cout << "transmit from source: " << tx_src << endl;
+				cout << "received from relay: " << recevied_rly << endl;
+				cout << "transmited from relay: " << tx_rly << endl;
             }
 			
 

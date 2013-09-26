@@ -5,7 +5,6 @@
 #include <cstdlib>            // For time()
 #include <string>
 #include <vector>
-
 #include <boost/chrono.hpp>
 #include <boost/thread.hpp>
 
@@ -69,7 +68,7 @@ int send(std::string destAddress,
         payload.insert(payload.end(), (char *)&x, ((char *)&x) + 4);
         payload.insert(payload.end(), (char *)&iteration, ((char *)&iteration) + 4);
         payload.insert(payload.end(), (char *)&id, ((char *)&id) + 4);
-
+        
         if (output == "verbose")
         {
             std::cout << "x:" << (int) x << std::endl;
@@ -78,7 +77,6 @@ int send(std::string destAddress,
         }
 
         x++;
-
         try
         {
             // Repeatedly send the string (not including \0) to the server

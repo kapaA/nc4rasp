@@ -24,6 +24,9 @@ int main(int argc, char *argv[])
         int max_tx = 1000000;
 		int id = 1;
 		std::string strategy = "simple";
+		double e1 = 0;
+		double e2 = 0;
+		double e3 = 0;
 		
         // Coding options
         string field = "binary";
@@ -48,6 +51,9 @@ int main(int argc, char *argv[])
             ("id", po::value<int>(&id), "node ID")
             ("density", po::value<double>(&density), "coding vector density")
             ("synteticLoss", po::value<double>(&loss), "sysntatic loss")
+            ("e1", po::value<double>(&e1), "error between source and relay")
+            ("e2", po::value<double>(&e2), "error between relay and destination")
+            ("e3", po::value<double>(&e3), "error between source and destination")
             ("format", po::value<string>(&output), "output format: verbose, python");
 
         po::variables_map vm;
@@ -86,17 +92,17 @@ int main(int argc, char *argv[])
             if (field == "binary")
             {
                 typedef kodo::full_rlnc_decoder<fifi::binary> rlnc_decoder;
-                receive<rlnc_decoder>(port, iteration, symbols, symbol_size, loss, output, id);
+                receive<rlnc_decoder>(port, iteration, symbols, symbol_size, e1, e2, e3, output, id);
             }
             else if (field == "binary8")
             {
                 typedef kodo::full_rlnc_decoder<fifi::binary8> rlnc_decoder;
-                receive<rlnc_decoder>(port, iteration, symbols, symbol_size, loss, output, id);
+                receive<rlnc_decoder>(port, iteration, symbols, symbol_size, e1, e2, e3, output, id);
             }
             else if (field == "binary16")
             {
                 typedef kodo::full_rlnc_decoder<fifi::binary16> rlnc_decoder;
-                receive<rlnc_decoder>(port, iteration, symbols, symbol_size, loss, output, id);
+                receive<rlnc_decoder>(port, iteration, symbols, symbol_size, e1, e2, e3, output, id);
             }
         }
         else 
@@ -104,18 +110,20 @@ int main(int argc, char *argv[])
             if (field == "binary")
             {
                 typedef kodo::full_rlnc_decoder<fifi::binary> rlnc_decoder;
-                forward<rlnc_decoder>(host,port, rate, iteration, symbols, symbol_size, max_tx, loss, output, id, strategy);
+                auto r = new relay<rlnc_decoder>(host,port, rate, iteration, symbols, symbol_size, max_tx, e1, e2, e3,loss, output, id, strategy);
+                r->forward();
             }
             else if (field == "binary8")
             {
-                typedef kodo::full_rlnc_decoder<fifi::binary8> rlnc_decoder;
-                forward<rlnc_decoder>(host,port, rate, iteration, symbols, symbol_size, max_tx, loss, output, id, strategy);
-            }
+                typedef kodo::full_rlnc_decoder<fifi::binary> rlnc_decoder;
+                auto r = new relay<rlnc_decoder>(host,port, rate, iteration, symbols, symbol_size, max_tx, e1, e2, e3,loss, output, id, strategy);
+                r->forward();
+                            }
             else if (field == "binary16")
             {
-                typedef kodo::full_rlnc_decoder<fifi::binary16> rlnc_decoder;
-                forward<rlnc_decoder>(host, port, rate, iteration, symbols, symbol_size, max_tx, loss, output, id, strategy);
-            }
+                typedef kodo::full_rlnc_decoder<fifi::binary> rlnc_decoder;
+                auto r = new relay<rlnc_decoder>(host,port, rate, iteration, symbols, symbol_size, max_tx, e1, e2, e3,loss, output, id, strategy);
+                r->forward();            }
         }
     }
     catch (std::exception& e)
