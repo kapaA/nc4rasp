@@ -215,8 +215,10 @@ int forward()
 
 	if (strategy == "simple")
 		forward_simple();
-	else 
+	else if (strategy == "playncool") 
 		playNcool();
+	else if (strategy == "hana_heuristic")
+		hana_heuristic();
 
 	return 0;
 
@@ -303,6 +305,97 @@ int playNcool()
 	
 	return 0;
 }
+ 
+ 
+int hana_heuristic()
+{
+				
+    const int MAXRCVSTRING = 4096; // Longest string to receive
+    int received_packets = 0;
+    int seq = 0;
+    UDPSocket sock(destPort);
+    char recvString[MAXRCVSTRING + 1]; // Buffer for echo string + \0
+    string sourceAddress;              // Address of datagram source
+    unsigned short sourcePort;         // Port of datagram source
+    int itr, rank;
+    vector<size_t> ranks(symbols);
+    UDPSocket FW_sock;
+	int sourceID;
+	int t = 0;                          // thershold for playncool
+	int source = 1;                     // source ID is one
+	bool flage = false; 
+	
+	float e1 = E1 / 100;
+	float e2 = E2 / 100;
+	float e3 = E3 / 100; 
+	
+	
+
+	
+	t = (float)(symbols) * (1 - e1)/ (1 - (e1 * e3));
+	cout << "Threshold:" << "  " << t << endl;
+
+	
+    while (true)
+    {
+        try
+        {
+			
+			int bytesRcvd = sock.recvFrom(recvString, MAXRCVSTRING,
+                                          sourceAddress, sourcePort);
+                                          
+			sourceID = *((int *)(&recvString[bytesRcvd - 4])); //source ID
+            itr = *((int *)(&recvString[bytesRcvd - 8])); //Iteration
+            seq = *((int *)(&recvString[bytesRcvd - 12])); //Sequence number
+
+               if (iteration != itr || (std::rand ()%100 + 1 < E1 && sourceID == source))
+            {
+                continue;
+            }
+
+            if (std::rand ()%100 + 1 < E2 && sourceID != source)
+            {
+                continue;
+            }
+            
+            if (sourceID != source)
+			{
+				t = t + 1;
+			}	
+            
+            if (output == "verbose" && !m_decoder->is_complete())
+            {
+                cout << "rank:" << m_decoder->rank() << endl;
+                cout << "seq:" << seq << endl;
+                cout << "itr:" << itr << endl;
+                cout << "iteration:" << iteration << endl;
+                cout << "source ID:" << sourceID << endl;
+            }
+						
+
+		    rank = m_decoder->rank();
+		    m_decoder->decode( (uint8_t*)&recvString[0] );
+		    
+		    if (rank == t && flage == false)
+		    {
+				
+				flage = true;
+				std::cout << "start helper" << endl;
+				boost::thread t(&relay::start_helper, this);	
+			
+			} 
+		}
+        catch (SocketException &e)
+        {
+            cerr << e.what() << endl;
+            exit(1);
+        }
+	}
+	
+	return 0;
+}
+ 
+ 
  
 int start_helper()
 {
