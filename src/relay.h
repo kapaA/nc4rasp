@@ -244,6 +244,7 @@ int playNcool()
 	float e1 = E1 / 100;
 	float e2 = E2 / 100;
 	float e3 = E3 / 100; 
+	
 	if ((1-e2) < (1-e1)*(e3))
 	{
 	
@@ -257,7 +258,9 @@ int playNcool()
 	    std::cout << "thershold: " << t << std::endl;  
 	}
 	
-    while (true)
+	boost::thread th;
+	
+    while (!m_decoder->is_complete())
     {
         try
         {
@@ -292,7 +295,7 @@ int playNcool()
 				
 				flage = true;
 				std::cout << "start helper" << endl;
-				boost::thread t(&relay::start_helper, this);	
+				th = boost::thread(&relay::start_helper, this);	
 			
 			} 
 		}
@@ -302,6 +305,7 @@ int playNcool()
             exit(1);
         }
 	}
+	th.join();
 	
 	return 0;
 }
@@ -397,17 +401,19 @@ int hana_heuristic()
  
  
  
-int start_helper()
+void start_helper()
 {
 	
 	int x = 1;
 	UDPSocket sock;
     int interval = 1000/(1000*rate/symbol_size);
     boost::chrono::milliseconds dur(interval);
+    int i = 0;
     
-	while (true)
+	while (i < max_tx)
     {
-		
+        i++;
+        		
         // Encode a packet into the payload buffer
         std::vector<uint8_t> payload(m_decoder->payload_size());
 		m_decoder->recode( &payload[0]);

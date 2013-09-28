@@ -90,22 +90,23 @@ int receive(int destPort,
 
 
 
-            if (output == "verbose") {
+		    rank = m_decoder->rank();
+		    m_decoder->decode( (uint8_t*)&recvString[0] );
+
+            if (output == "verbose" && m_decoder->is_complete()) {
+                cout << "source ID:" << sourceID << endl;
                 cout << "rank:" << m_decoder->rank() << endl;
                 cout << "seq:" << seq << endl;
                 cout << "itr:" << itr << endl;
                 cout << "iteration:" << iteration << endl;
-                cout << "source ID:" << sourceID << endl;
                 cout << "e3:" << e3 << endl;
-				cout << "received from source: " << recevied_src << endl;
-				cout << "transmit from source: " << tx_src << endl;
-				cout << "received from relay: " << recevied_rly << endl;
-				cout << "transmited from relay: " << tx_rly << endl;
+				cout << "received_from_source:" << recevied_src << endl;
+				cout << "transmit_from_source:" << tx_src << endl;
+				cout << "received_from_relay:" << recevied_rly << endl;
+				cout << "transmited_from_relay:" << tx_rly << endl;
             }
 			
 
-		    rank = m_decoder->rank();
-		    m_decoder->decode( (uint8_t*)&recvString[0] );
 		    //received_packets++;
 			
 			//cout << "rank: " << rank << endl; //DEBUG!
