@@ -300,8 +300,9 @@ int hana_heuristic()
 	t = (float)(symbols) * (1 - e1)/ (1 - (e1 * e3));
 	cout << "Threshold:" << "  " << t << endl;
 
+	boost::thread th;
 	
-    while (true)
+    while (!m_decoder->is_complete())
     {
         try
         {
@@ -346,7 +347,7 @@ int hana_heuristic()
 				
 				flage = true;
 				std::cout << "start helper" << endl;
-				boost::thread t(&relay::start_helper, this);	
+				th = boost::thread(&relay::start_helper, this);	
 			
 			} 
 		}
@@ -356,6 +357,7 @@ int hana_heuristic()
             exit(1);
         }
 	}
+	th.join();
 	
 	return 0;
 }
