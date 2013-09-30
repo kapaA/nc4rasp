@@ -95,7 +95,7 @@ int forward_simple()
             itr = *((int *)(&recvString[bytesRcvd - 8])); //Iteration
             seq = *((int *)(&recvString[bytesRcvd - 12])); //Sequence number
 
-            if (iteration != itr || std::rand ()%100 + 1 < loss)
+            if (iteration != itr || std::rand ()%100 + 1 < E1)
             {
                 continue;
             }
@@ -108,14 +108,12 @@ int forward_simple()
                 cout << "source ID:" << sourceID << endl;
             }
 						
-
 		    rank = m_decoder->rank();
 		    m_decoder->decode( (uint8_t*)&recvString[0] );
 		      
 			std::vector<uint8_t> payload(m_decoder->payload_size());
 			m_decoder->recode( &payload[0]);
 		    
-		
 			payload.insert(payload.end(), (char *)&x, ((char *)&x) + 4);
 			payload.insert(payload.end(), (char *)&iteration, ((char *)&iteration) + 4);
 			payload.insert(payload.end(), (char *)&id, ((char *)&id) + 4);
@@ -147,52 +145,15 @@ int forward_simple()
         }
     }
 
+	std::cout << "start helper" << endl;
+	boost::thread t(&relay::start_helper, this);	
+	t.join();
 
-
-	int i = 0;
-    int interval = 1000/(1000*rate/symbol_size);
-    boost::chrono::milliseconds dur(interval);
-
-	while (i < max_tx)
-    {
-        i++;
-        // Encode a packet into the payload buffer
-        std::vector<uint8_t> payload(m_decoder->payload_size());
-        m_decoder->recode( &payload[0] );
-		
-        payload.insert(payload.end(), (char *)x, ((char *)&x) + 4);
-        payload.insert(payload.end(), (char *)&iteration, ((char *)&iteration) + 4);
-		payload.insert(payload.end(), (char *)&id, ((char *)&id) + 4);
-					
-        if (output == "verbose")
-        {
-            std::cout << "x:" << (int) seq << std::endl;
-            std::cout << "p:" << (int) payload[0] << std::endl;
-            std::cout << "iteration:" << (int) iteration << std::endl;
-        }
-
-        try
-        {
-            // Repeatedly send the string (not including \0) to the server
-            FW_sock.sendTo((char *)&payload[0], payload.size(), destAddress , destPort);
-            boost::this_thread::sleep_for(dur);
-        }
-        catch (SocketException &e)
-        {
-            cerr << e.what() << endl;
-            exit(0);
-        }
-    }
 
 	
-	
-    std::vector<uint8_t> data_out(m_decoder->block_size());
-    m_decoder->copy_symbols(sak::storage(data_out));
-
     if (output == "verbose")
     {
         std::cout << "ITERATION FINISHED: "<< iteration << std::endl;
-
         std::cout << "last_transmitted_seq_num:"<< seq << std::endl;
         std::cout << "received_packets:" << received_packets++ << endl;
     }

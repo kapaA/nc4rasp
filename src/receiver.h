@@ -103,7 +103,7 @@ int receive(int destPort,
 				cout << "received_from_source:" << recevied_src << endl;
 				cout << "transmit_from_source:" << tx_src << endl;
 				cout << "received_from_relay:" << recevied_rly << endl;
-				cout << "transmited_from_relay:" << tx_rly << endl;
+				cout << "transmit_from_relay:" << tx_rly << endl;
             }
 			
 
@@ -132,7 +132,6 @@ int receive(int destPort,
     if (output == "verbose")
     {
         std::cout << "ITERATION FINISHED: "<< iteration << std::endl;
-
         std::cout << "last_transmitted_seq_num:"<< seq << std::endl;
         std::cout << "received_packets:" << received_packets++ << endl;
     }
