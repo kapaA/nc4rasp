@@ -10,6 +10,43 @@
 
 #include "PracticalSocket.h"  // For UDPSocket and SocketException
 
+bool finished = false;
+
+void listen_ack(int iteration)
+{
+	int ackPort = 12345;	
+    const int MAXRCVSTRING = 4096; // Longest string to receive
+    UDPSocket sock(ackPort);
+    char recvString[MAXRCVSTRING + 1]; // Buffer for echo string + \0
+    string sourceAddress;              // Address of datagram source
+    unsigned short sourcePort;         // Port of datagram source
+
+   while (true)
+    {
+        try
+        {
+
+            int bytesRcvd = sock.recvFrom(recvString, MAXRCVSTRING,
+                                          sourceAddress, sourcePort);
+                          
+			int itr = *((int *)(&recvString[bytesRcvd - 4])); //source ID
+            
+            if (itr == iteration)
+			{
+				std::cout << "ACK is received!" << endl;
+				finished = true;
+				break;
+			}	
+            
+         }
+        catch (SocketException &e)
+        {
+            cerr << e.what() << endl;
+            exit(1);
+        }
+ 
+	}
+}
 
 template<class Encoder>
 int send(std::string destAddress,
@@ -28,8 +65,6 @@ int send(std::string destAddress,
 
     m_encoder = m_encoder_factory.build();
 
-
-
     if (density > 0)
         m_encoder->set_density(density);
 
@@ -39,6 +74,9 @@ int send(std::string destAddress,
     if (output == "verbose")
         cout << "sender:" <<  endl;
 
+	boost::thread receive_ack = boost::thread(listen_ack, iteration);	
+    
+    
     // Allocate some data to encode. In this case we make a buffer
     // with the same size as the encoder's block size (the max.
     // amount a single encoder can encode)
@@ -59,7 +97,13 @@ int send(std::string destAddress,
 
     int i = 0;
     while (i < max_tx)
-    {
+	{
+		if (finished == true)
+		{
+		std::cout << "The destination is finished" << endl;	
+		break;
+		}
+
         i++;
         // Encode a packet into the payload buffer
         std::vector<uint8_t> payload(m_encoder->payload_size());
@@ -89,6 +133,8 @@ int send(std::string destAddress,
             exit(0);
         }
     }
-
+    
     return 0;
 }
+
+

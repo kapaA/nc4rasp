@@ -3,11 +3,8 @@
 
 import sys
 import os
-import pylab
 import numpy
 import subprocess
-import matplotlib.pyplot as plt
-import matplotlib.pyplot as plt2
 import numpy as np	
 import signal
 import paramiko            					#for ssh
@@ -36,8 +33,8 @@ def run_source(e1, e2, e3):
 
 	ssh = paramiko.SSHClient()
 	ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-	ssh.connect('rasp01.lab.es.aau.dk', username='pi', password='rasp')
-	stdin, stdout, stderr = ssh.exec_command("./peyman/nc4rasp --type=source  --field=binary8 --max_tx=1000 --host=255.255.255.255 --e1={} --e2={} --e3={} --rate=100".format(e1, e2, e3))
+	ssh.connect('rasp05.lab.es.aau.dk', username='pi', password='rasp')
+	stdin, stdout, stderr = ssh.exec_command("./peyman/nc4rasp --type=source  --field=binary8 --max_tx=1000 --host=10.0.0.255 --e1={} --e2={} --e3={} --rate=50 --port=6000".format(e1, e2, e3))
 	date = stdout.read()
 
 	
@@ -45,8 +42,8 @@ def run_relay(e1, e2, e3):
 
 	ssh = paramiko.SSHClient()
 	ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-	ssh.connect('rasp02.lab.es.aau.dk', username='pi', password='rasp')
-	stdin, stdout, stderr = ssh.exec_command("./peyman/nc4rasp --strategy=playncool --type=relay --field=binary8 --max_tx=1000 --id=2 --host=rasp04.lab.es.aau.dk --e1={} --e2={} --e3={} --rate=100".format(e1, e2, e3))
+	ssh.connect('rasp06.lab.es.aau.dk', username='pi', password='rasp')
+	stdin, stdout, stderr = ssh.exec_command("./peyman/nc4rasp --strategy=playncool --type=relay --field=binary8 --max_tx=1000 --id=2 --host=rasp07.lab.es.aau.dk --e1={} --e2={} --e3={} --rate=50 --port=6000".format(e1, e2, e3))
 	date = stdout.read()
 	#print(date)
 	
@@ -57,8 +54,8 @@ def run_destination(e1, e2, e3, i):
 
 	ssh = paramiko.SSHClient()
 	ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-	ssh.connect('rasp04.lab.es.aau.dk', username='pi', password='rasp')
-	stdin, f, stderr = ssh.exec_command("./peyman/nc4rasp --type=destination --max_tx=1000 --e1={} --e2={} --e3={}".format(e1, e2, e3))
+	ssh.connect('rasp07.lab.es.aau.dk', username='pi', password='rasp')
+	stdin, f, stderr = ssh.exec_command("./peyman/nc4rasp --type=destination --max_tx=1000 --e1={} --e2={} --e3={} --port=6000".format(e1, e2, e3))
 	#data = f.read()
 	#print data
 	
@@ -119,7 +116,7 @@ for i in range(1,8):
 		analis_total.insert(i,t_s*x + ((2 *(n - d_r))/(2-(E2+E3)))*((x+1)/2))
 		
 
-	for j in range(1,10):
+	for j in range(1,100):
 				
 		source = Thread(target = run_source, args = (e1, e2, e3))
 		relay = Thread(target = run_relay, args = (e1, e2, e3))
@@ -142,7 +139,7 @@ for i in range(1,8):
 	tx.insert(i, meanstdv(tx_source) + meanstdv(tx_relay) )
 	
 
-
+"""
 import matplotlib.pyplot as plt
 
 x = np.arange(0.1,0.8 ,0.1)
@@ -156,11 +153,11 @@ plt.plot(x,tx)
 plt.plot(x,analis_total)
 plt.plot(x,tx_no_helper)
 
-plt.legend(['immplementation result', 'Analysis result', 'without helper'], loc='upper left')
+plt.legend(['implementation result', 'Analysis result', 'without helper'], loc='upper left')
 plt.xlabel('e_2')
 plt.ylabel('total number of transmission')
 plt.show()
-
+"""
 
 
 print "analisis"

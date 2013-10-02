@@ -6,7 +6,6 @@
 #include <vector>
 #include <string>
 
-
 #include "PracticalSocket.h"  // For UDPSocket and SocketException
 
 using namespace std;
@@ -32,7 +31,9 @@ template <class Decoder> class relay {
 	std::string output;
 	int id;
 	std::string strategy;
-
+	bool finished ;						// flage showing the destination is done or not
+	boost::thread receive_ack; 
+	
  relay(std::string dest,
 			int destP,
             int r,
@@ -63,7 +64,46 @@ template <class Decoder> class relay {
 	output = out;
 	id = identification;
 	strategy = st;
+	finished = false;
 }
+
+
+void listen_ack(int iteration)
+{
+	int ackPort = 12345;	
+    const int MAXRCVSTRING = 4096; // Longest string to receive
+    UDPSocket sock(ackPort);
+    char recvString[MAXRCVSTRING + 1]; // Buffer for echo string + \0
+    string sourceAddress;              // Address of datagram source
+    unsigned short sourcePort;         // Port of datagram source
+
+   while (true)
+    {
+        try
+        {
+
+            int bytesRcvd = sock.recvFrom(recvString, MAXRCVSTRING,
+                                          sourceAddress, sourcePort);
+                          
+			int itr = *((int *)(&recvString[bytesRcvd - 4])); //source ID
+            
+            if (itr == iteration)
+			{
+				std::cout << "ACK is received!" << endl;
+				finished = true;
+				break;
+			}	
+            
+         }
+        catch (SocketException &e)
+        {
+            cerr << e.what() << endl;
+            exit(1);
+        }
+ 
+	}
+}
+
 
 int forward_simple()
 {
@@ -81,8 +121,7 @@ int forward_simple()
 	int x = 1;
     int sourceID;
     
-    
-    
+
     while (!m_decoder->is_complete())
     {
         try
@@ -201,7 +240,6 @@ int playNcool()
 	int sourceID;
 	int t = 0;                          // thershold for playncool
 	bool flage = false; 
-	
 	float e1 = E1 / 100;
 	float e2 = E2 / 100;
 	float e3 = E3 / 100; 
@@ -214,17 +252,24 @@ int playNcool()
 	}
 	else
 	{
-		  
 		t = ((float) -symbols * (-1 + e2 + e3 - e1 * e3 ))/(( 2 - e3 - e2 )*( 1 - e1 ) * e3 -(1 - e3) * ( -1 + e2 + e3 - e1 * e3 ));
 	    std::cout << "thershold: " << t << std::endl;  
 	}
 	
 	boost::thread th;
-	
+
+	receive_ack = boost::thread(&relay::listen_ack, this, iteration);		// listen to ack packets	
+
     while (!m_decoder->is_complete())
     {
         try
         {
+
+			if (finished == true)
+			{
+				std::cout << "The relay is finished" << endl;	
+				break;
+			}
 			
 			int bytesRcvd = sock.recvFrom(recvString, MAXRCVSTRING,
                                           sourceAddress, sourcePort);
@@ -267,7 +312,7 @@ int playNcool()
         }
 	}
 	th.join();
-	
+	//receive_ack.join();		// no need to wait
 	return 0;
 }
  
@@ -361,9 +406,7 @@ int hana_heuristic()
 	
 	return 0;
 }
- 
- 
- 
+  
 void start_helper()
 {
 	
@@ -373,10 +416,10 @@ void start_helper()
     boost::chrono::milliseconds dur(interval);
     int i = 0;
     
-	while (i < max_tx)
+	while (i < max_tx && finished == false)
     {
         i++;
-        		
+        
         // Encode a packet into the payload buffer
         std::vector<uint8_t> payload(m_decoder->payload_size());
 		m_decoder->recode( &payload[0]);
@@ -398,9 +441,56 @@ void start_helper()
             exit(0);
         }
     }
-
+    
+	if (finished == true)
+	{
+		std::cout << "The relay received ACK from destination" << endl;
+	}
 	
 }
 
+
+void transmit_ack(int iteration)
+{
+
+    int interval = 1000/(1000*100/100);
+    boost::chrono::milliseconds dur(interval);
+    UDPSocket sock;
+	string ackAddress = "10.0.0.255";
+	int ackPort = 12345;
+    int i = 0;
+    
+    while (i < 5)
+    {
+        i++;
+        // Encode a packet into the payload buffer
+        std::vector<uint8_t> payload(2);
+		payload.insert(payload.end(), (char *)&iteration, ((char *)&iteration) + 4);
+
+        try
+        {
+            // Repeatedly send the string (not including \0) to the server
+            sock.sendTo((char *)&payload[0], payload.size(), ackAddress , ackPort);
+            boost::this_thread::sleep_for(dur);
+        }
+        catch (SocketException &e)
+        {
+            cerr << e.what() << endl;
+            exit(0);
+        }
+    }
+}
+
+
             
 };
+
+
+
+
+
+
+
+
+
+

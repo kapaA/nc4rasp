@@ -22,6 +22,38 @@ void print_result(vector<size_t> &ranks, size_t rx, size_t seq)
     cout << "}" << endl;
 }
 
+void transmit_ack(int iteration)
+{
+
+    int interval = 1000/(1000*100/100);
+    boost::chrono::milliseconds dur(interval);
+    UDPSocket sock;
+	string ackAddress = "10.0.0.255";
+	int ackPort = 12345;
+    int i = 0;
+    
+    while (i < 5)
+    {
+        i++;
+        // Encode a packet into the payload buffer
+        std::vector<uint8_t> payload(2);
+		payload.insert(payload.end(), (char *)&iteration, ((char *)&iteration) + 4);
+
+        try
+        {
+            // Repeatedly send the string (not including \0) to the server
+            sock.sendTo((char *)&payload[0], payload.size(), ackAddress , ackPort);
+            boost::this_thread::sleep_for(dur);
+        }
+        catch (SocketException &e)
+        {
+            cerr << e.what() << endl;
+            exit(0);
+        }
+    }
+}
+
+
 template<class Decoder>
 int receive(int destPort,
             int iteration,
@@ -126,6 +158,7 @@ int receive(int destPort,
         }
     }
 
+    transmit_ack(itr);
     std::vector<uint8_t> data_out(m_decoder->block_size());
     m_decoder->copy_symbols(sak::storage(data_out));
 
@@ -142,3 +175,6 @@ int receive(int destPort,
 
     return 0;
 }
+
+
+
