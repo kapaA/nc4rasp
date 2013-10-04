@@ -85,8 +85,7 @@ int receive(int destPort,
 	int recevied_rly;
 	int tx_rly;
 	int tx_src;
-	
-	
+
     while (!m_decoder->is_complete())
     {
         try
@@ -98,12 +97,12 @@ int receive(int destPort,
             itr = *((int *)(&recvString[bytesRcvd - 8])); //Iteration
             seq = *((int *)(&recvString[bytesRcvd - 12])); //Sequence number
 
-            if (iteration != itr || (std::rand ()%100 + 1 < e3 && sourceID == source))
+            if (iteration != itr || (std::rand ()%100  < e3 && sourceID == source))
             {
                 continue;
             }
 
-            if (std::rand ()%100 + 1 < e2 && sourceID != source)
+            if (std::rand ()%100  < e2 && sourceID != source)
             {
                 continue;
             }
@@ -125,7 +124,7 @@ int receive(int destPort,
 		    rank = m_decoder->rank();
 		    m_decoder->decode( (uint8_t*)&recvString[0] );
 
-            if (output == "verbose" && m_decoder->is_complete()) {
+            if (output == "verbose" ) {
                 cout << "source ID:" << sourceID << endl;
                 cout << "rank:" << m_decoder->rank() << endl;
                 cout << "seq:" << seq << endl;
@@ -157,11 +156,12 @@ int receive(int destPort,
             exit(1);
         }
     }
-
+	
+		
     transmit_ack(itr);
     std::vector<uint8_t> data_out(m_decoder->block_size());
     m_decoder->copy_symbols(sak::storage(data_out));
-
+	
     if (output == "verbose")
     {
         std::cout << "ITERATION FINISHED: "<< iteration << std::endl;

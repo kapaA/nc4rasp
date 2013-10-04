@@ -16,7 +16,7 @@ template <class Decoder> class relay {
   public:
 
 	typename Decoder::pointer m_decoder;
-
+	int ovear_estimate;
 	std::string destAddress;
 	int destPort;
 	int rate;
@@ -47,9 +47,10 @@ template <class Decoder> class relay {
             double l,
             std::string out,
             int identification,
-             std::string st)
+             std::string st,
+             int estimate)
 {
-
+	ovear_estimate = estimate;
 	destAddress = dest;
 	destPort = destP;
 	rate = r;
@@ -134,7 +135,7 @@ int forward_simple()
             itr = *((int *)(&recvString[bytesRcvd - 8])); //Iteration
             seq = *((int *)(&recvString[bytesRcvd - 12])); //Sequence number
 
-            if (iteration != itr || std::rand ()%100 + 1 < E1)
+            if (iteration != itr || std::rand ()%100 < E1)
             {
                 continue;
             }
@@ -244,6 +245,13 @@ int playNcool()
 	float e2 = E2 / 100;
 	float e3 = E3 / 100; 
 	
+	if (ovear_estimate == 1)
+	{
+	//e1 = 1 - (0.93 * (1 - e1));		
+	e2 = 1 - (0.93 * (1 - e2));		
+	//e3 = 1 - (0.93 * (1 - e3));		
+	}
+
 	if ((1-e2) < (1-e1)*(e3))
 	{
 	
@@ -278,7 +286,7 @@ int playNcool()
             itr = *((int *)(&recvString[bytesRcvd - 8])); //Iteration
             seq = *((int *)(&recvString[bytesRcvd - 12])); //Sequence number
 
-            if (iteration != itr || std::rand ()%100 + 1 < E1)
+            if (iteration != itr || std::rand ()%100 < E1)
             {
                 continue;
             }
@@ -359,12 +367,12 @@ int hana_heuristic()
             itr = *((int *)(&recvString[bytesRcvd - 8])); //Iteration
             seq = *((int *)(&recvString[bytesRcvd - 12])); //Sequence number
 
-               if (iteration != itr || (std::rand ()%100 + 1 < E1 && sourceID == source))
+               if (iteration != itr || (std::rand ()%100 < E1 && sourceID == source))
             {
                 continue;
             }
 
-            if (std::rand ()%100 + 1 < E2 && sourceID != source)
+            if (std::rand ()%100 < E2 && sourceID != source)
             {
                 continue;
             }

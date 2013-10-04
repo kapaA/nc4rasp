@@ -94,6 +94,11 @@ int send(std::string destAddress,
     int interval = 1000/(1000*rate/symbol_size);
     boost::chrono::milliseconds dur(interval);
     UDPSocket sock;
+	
+	boost::posix_time::ptime now; 
+	boost::posix_time::time_duration diff;
+	
+	boost::posix_time::ptime tick = boost::posix_time::microsec_clock::local_time();
 
     int i = 0;
     while (i < max_tx)
@@ -101,6 +106,11 @@ int send(std::string destAddress,
 		if (finished == true)
 		{
 		std::cout << "The destination is finished" << endl;	
+			
+		now  = boost::posix_time::microsec_clock::local_time();
+		diff = now - tick;				// completion time 
+		std::cout << "completion_time:" << diff.total_microseconds()<<endl;
+		
 		break;
 		}
 
