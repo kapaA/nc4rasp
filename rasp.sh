@@ -16,5 +16,9 @@ wget raw.github.com/kapaA/nc4rasp/master/hosts
 sudo rm /etc/hosts
 sudo cp hosts /etc/
 
-
+passwd <<EOF
+raspberry
+rasp
+rasp
+EOF
 
