@@ -8,7 +8,7 @@ wget raw.github.com/kapaA/nc4rasp/master/adhoc.sh
 sudo apt-get install batctl
 sudo apt-get install iw
 sudo chmod +x adhoc.sh
-sudo sed -i '19a\cd /home/pi && bash sudo adhoc.sh' /etc/rc.local 
+sudo sed -i '19a\cd /home/pi && sudo ./adhoc.sh' /etc/rc.local 
 
 sudo sed -i '1d' /etc/hostname 
 echo $rasp | sudo tee /etc/hostname
