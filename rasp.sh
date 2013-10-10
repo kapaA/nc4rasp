@@ -11,7 +11,6 @@ sudo chmod +x adhoc.sh
 sudo sed -i '19a\cd /home/pi && bash sudo adhoc.sh' /etc/rc.local 
 
 sudo sed -i '1d' /etc/hostname 
-echo myhost.com | sudo tee /etc/hostname
 echo $rasp | sudo tee /etc/hostname
 wget raw.github.com/kapaA/nc4rasp/master/hosts
 sudo rm /etc/hosts
