@@ -3,7 +3,7 @@
 echo -n "enter raspname"
 read -e rasp
 
-wget https://github.com/kapaA/nc4rasp/blob/master/batman-adv.ko
+wget https://github.com/kapaA/nc4rasp/raw/master/batman-adv.ko
 wget raw.github.com/kapaA/nc4rasp/master/adhoc.sh
 sudo apt-get install batctl
 sudo apt-get install iw
