@@ -22,7 +22,7 @@ void print_result(vector<size_t> &ranks, size_t rx, size_t seq)
     cout << "}" << endl;
 }
 
-void transmit_ack(int iteration)
+void transmit_ack(int iteration, int id)
 {
 
     int interval = 1000/(1000*100/100);
@@ -38,6 +38,7 @@ void transmit_ack(int iteration)
         // Encode a packet into the payload buffer
         std::vector<uint8_t> payload(2);
 		payload.insert(payload.end(), (char *)&iteration, ((char *)&iteration) + 4);
+        payload.insert(payload.end(), (char *)&id, ((char *)&id) + 4);
 
         try
         {
@@ -63,7 +64,11 @@ int receive(int destPort,
 			double e2,
 			double e3,
 			string &output,
-            int id)
+            int id,
+            double ovear_estimate,
+            int source,
+            int helperID,
+            int is_enabledd_helper)
 {
     typename Decoder::pointer m_decoder;
     typename Decoder::factory m_decoder_factory(symbols, symbol_size);
@@ -80,7 +85,6 @@ int receive(int destPort,
     int itr, rank;
     vector<size_t> ranks(symbols);
 	int sourceID;
-	int source = 1;
 	int recevied_src;
 	int recevied_rly;
 	int tx_rly;
@@ -97,15 +101,31 @@ int receive(int destPort,
             itr = *((int *)(&recvString[bytesRcvd - 8])); //Iteration
             seq = *((int *)(&recvString[bytesRcvd - 12])); //Sequence number
 
-            if (iteration != itr || (std::rand ()%100  < e3 && sourceID == source))
+
+			// filter the packet from the other nodes
+			if (sourceID != source && sourceID != helperID)
+			{
+				continue;
+			}
+
+			if (sourceID == helperID && is_enabledd_helper == 0)
+			{
+				continue;	
+			}
+            std::cout << "here 2" << std::endl;
+            // drop the packet because of loss
+            if (iteration != itr || (std::rand ()%100  < (e3 + ovear_estimate) && sourceID == source))
             {
                 continue;
             }
 
-            if (std::rand ()%100  < e2 && sourceID != source)
+            if (std::rand ()%100  < (e2 + ovear_estimate) && sourceID == helperID)
             {
                 continue;
             }
+
+		    rank = m_decoder->rank();
+		    m_decoder->decode( (uint8_t*)&recvString[0] );
 
             if (sourceID == source)
             {
@@ -117,12 +137,9 @@ int receive(int destPort,
             {
 				recevied_rly++;
 				tx_rly = seq;
+                cout << "rank_relay:" << m_decoder->rank() << endl;
+
             }
-
-
-
-		    rank = m_decoder->rank();
-		    m_decoder->decode( (uint8_t*)&recvString[0] );
 
             if (output == "verbose" ) {
                 cout << "source ID:" << sourceID << endl;
@@ -158,7 +175,7 @@ int receive(int destPort,
     }
 	
 		
-    transmit_ack(itr);
+    transmit_ack(itr, id);
     std::vector<uint8_t> data_out(m_decoder->block_size());
     m_decoder->copy_symbols(sak::storage(data_out));
 	

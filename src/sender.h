@@ -10,9 +10,13 @@
 
 #include "PracticalSocket.h"  // For UDPSocket and SocketException
 
-bool finished = false;
+	bool finished = false;
 
-void listen_ack(int iteration)
+	boost::posix_time::ptime now; 
+	boost::posix_time::time_duration diff;
+	boost::posix_time::ptime tick;
+
+void listen_ack(int iteration, int relayID, int DestinationID )
 {
 	int ackPort = 12345;	
     const int MAXRCVSTRING = 4096; // Longest string to receive
@@ -26,18 +30,27 @@ void listen_ack(int iteration)
         try
         {
 
+			
             int bytesRcvd = sock.recvFrom(recvString, MAXRCVSTRING,
                                           sourceAddress, sourcePort);
                           
-			int itr = *((int *)(&recvString[bytesRcvd - 4])); //source ID
+			int ACKsource = *((int *)(&recvString[bytesRcvd - 4])); //source ID
+			int itr = *((int *)(&recvString[bytesRcvd - 8])); //source ID
             
-            if (itr == iteration)
+            if (itr == iteration && ACKsource == relayID)
 			{
-				std::cout << "ACK is received!" << endl;
+				std::cout << "ACK is received from relay!" << endl;
 				finished = true;
+			}	
+			if (itr == iteration && ACKsource == DestinationID)
+			{
+				now  = boost::posix_time::microsec_clock::local_time();
+				diff = now - tick;							// completion time 
+				std::cout << "ACK is received from destination!" << endl;
+
+				std::cout << "completion_time:" << diff.total_microseconds()<<endl;
 				break;
 			}	
-            
          }
         catch (SocketException &e)
         {
@@ -58,7 +71,9 @@ int send(std::string destAddress,
          int symbol_size,
          double density,
          string &output,
-         int id)
+         int id,
+         int relayID,
+         int DestinationID)
 {
     typename Encoder::pointer m_encoder;
     typename Encoder::factory m_encoder_factory(symbols, symbol_size);
@@ -74,7 +89,7 @@ int send(std::string destAddress,
     if (output == "verbose")
         cout << "sender:" <<  endl;
 
-	boost::thread receive_ack = boost::thread(listen_ack, iteration);	
+	boost::thread receive_ack = boost::thread(listen_ack, iteration, relayID, DestinationID);	
     
     
     // Allocate some data to encode. In this case we make a buffer
@@ -95,10 +110,7 @@ int send(std::string destAddress,
     boost::chrono::milliseconds dur(interval);
     UDPSocket sock;
 	
-	boost::posix_time::ptime now; 
-	boost::posix_time::time_duration diff;
-	
-	boost::posix_time::ptime tick = boost::posix_time::microsec_clock::local_time();
+	tick = boost::posix_time::microsec_clock::local_time();
 
     int i = 0;
     while (i < max_tx)
@@ -106,10 +118,6 @@ int send(std::string destAddress,
 		if (finished == true)
 		{
 		std::cout << "The destination is finished" << endl;	
-			
-		now  = boost::posix_time::microsec_clock::local_time();
-		diff = now - tick;				// completion time 
-		std::cout << "completion_time:" << diff.total_microseconds()<<endl;
 		
 		break;
 		}
@@ -143,7 +151,7 @@ int send(std::string destAddress,
             exit(0);
         }
     }
-    
+    receive_ack.join(); // wait to receive an ACK from destination
     return 0;
 }
 

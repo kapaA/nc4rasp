@@ -1,11 +1,11 @@
-#pragma once```````````````````
+#pragma once
 
 #include <cstdint>
 #include <iostream>           // For cout and cerr
 #include <cstdlib>            // For atoi()
 #include <vector>
 #include <string>
-
+#include <fstream>
 #include "PracticalSocket.h"  // For UDPSocket and SocketException
 
 using namespace std;
@@ -33,6 +33,12 @@ template <class Decoder> class relay {
 	std::string strategy;
 	bool finished ;						// flage showing the destination is done or not
 	boost::thread receive_ack; 
+	UDPSocket sock;
+	int source;
+	int relayID;
+	int helperID;
+	int helper_avaliable;
+	int destinationID;
 	
  relay(std::string dest,
 			int destP,
@@ -47,8 +53,13 @@ template <class Decoder> class relay {
             double l,
             std::string out,
             int identification,
-             std::string st,
-             int estimate)
+            std::string st,
+            double estimate,
+            int srcID,
+            int rlyID,
+            int desID,
+            int helperID,
+            int is_enabled)
 {
 	ovear_estimate = estimate;
 	destAddress = dest;
@@ -66,14 +77,23 @@ template <class Decoder> class relay {
 	id = identification;
 	strategy = st;
 	finished = false;
+	sock.setLocalPort(destPort);
+	source = srcID;
+	relayID = rlyID;
+	destinationID = desID;
+	helper_avaliable = is_enabled;
 }
 
+int is_enabled_helper()
+{
+return helper_avaliable;
+}
 
 void listen_ack(int iteration)
 {
 	int ackPort = 12345;	
     const int MAXRCVSTRING = 4096; // Longest string to receive
-    UDPSocket sock(ackPort);
+    UDPSocket sock_ack(ackPort);
     char recvString[MAXRCVSTRING + 1]; // Buffer for echo string + \0
     string sourceAddress;              // Address of datagram source
     unsigned short sourcePort;         // Port of datagram source
@@ -83,15 +103,23 @@ void listen_ack(int iteration)
         try
         {
 
-            int bytesRcvd = sock.recvFrom(recvString, MAXRCVSTRING,
+            int bytesRcvd = sock_ack.recvFrom(recvString, MAXRCVSTRING,
                                           sourceAddress, sourcePort);
-                          
-			int itr = *((int *)(&recvString[bytesRcvd - 4])); //source ID
+                                          
+			int ACKsource = *((int *)(&recvString[bytesRcvd - 4])); //source ID                          
+			int itr = *((int *)(&recvString[bytesRcvd - 8])); //iteartion num
+
             
-            if (itr == iteration)
+            if (itr == iteration && ACKsource == destinationID)
 			{
 				std::cout << "ACK is received!" << endl;
 				finished = true;
+				sock.close();
+				ofstream myfile;
+				myfile.open ("example.txt");
+				myfile << "ACK is received!.\n" << iteration;
+				myfile.close();
+
 				break;
 			}	
             
@@ -112,7 +140,6 @@ int forward_simple()
     const int MAXRCVSTRING = 4096; // Longest string to receive
     int received_packets = 0;
     int seq = 0;
-    UDPSocket sock(destPort);
     char recvString[MAXRCVSTRING + 1]; // Buffer for echo string + \0
     string sourceAddress;              // Address of datagram source
     unsigned short sourcePort;         // Port of datagram source
@@ -121,7 +148,8 @@ int forward_simple()
     UDPSocket FW_sock;
 	int x = 1;
     int sourceID;
-    
+
+	receive_ack = boost::thread(&relay::listen_ack, this, iteration);		// listen to ack packets	
 
     while (!m_decoder->is_complete())
     {
@@ -134,11 +162,28 @@ int forward_simple()
 			sourceID = *((int *)(&recvString[bytesRcvd - 4])); //source ID
             itr = *((int *)(&recvString[bytesRcvd - 8])); //Iteration
             seq = *((int *)(&recvString[bytesRcvd - 12])); //Sequence number
-
-            if (iteration != itr || std::rand ()%100 < E1)
+			
+			// filter the packet from the other nodes
+			if (sourceID != source && sourceID != relayID)
+			{
+				continue;
+			}
+			if (sourceID == helperID && is_enabled_helper () == 0)
+			{
+				continue;	
+			}
+			
+            // drop the packet because of the loss
+            if (iteration != itr || (std::rand ()%100 < (E3 + ovear_estimate) && sourceID == source))
             {
                 continue;
             }
+            
+            if (iteration != itr || (std::rand ()%100 < (E2 + ovear_estimate) && sourceID == relayID))
+            {
+				continue;
+			}
+            
 
             if (output == "verbose") {
                 cout << "rank:" << m_decoder->rank() << endl;
@@ -184,12 +229,11 @@ int forward_simple()
             exit(1);
         }
     }
-
+	
+	transmit_ack(itr, id);
 	std::cout << "start helper" << endl;
 	boost::thread t(&relay::start_helper, this);	
 	t.join();
-
-
 	
     if (output == "verbose")
     {
@@ -231,7 +275,7 @@ int playNcool()
     const int MAXRCVSTRING = 4096; // Longest string to receive
     int received_packets = 0;
     int seq = 0;
-    UDPSocket sock(destPort);
+    //UDPSocket sock(destPort);
     char recvString[MAXRCVSTRING + 1]; // Buffer for echo string + \0
     string sourceAddress;              // Address of datagram source
     unsigned short sourcePort;         // Port of datagram source
@@ -245,12 +289,6 @@ int playNcool()
 	float e2 = E2 / 100;
 	float e3 = E3 / 100; 
 	
-	if (ovear_estimate == 1)
-	{
-	//e1 = 1 - (0.93 * (1 - e1));		
-	e2 = 1 - (0.93 * (1 - e2));		
-	//e3 = 1 - (0.93 * (1 - e3));		
-	}
 
 	if ((1-e2) < (1-e1)*(e3))
 	{
@@ -275,6 +313,11 @@ int playNcool()
 
 			if (finished == true)
 			{
+				//sock.close(); Add this to receive ack 
+				ofstream myfile;
+				myfile.open ("example2.txt");
+				myfile << "Finished.\n" << iteration;
+				myfile.close();
 				std::cout << "The relay is finished" << endl;	
 				break;
 			}
@@ -282,11 +325,30 @@ int playNcool()
 			int bytesRcvd = sock.recvFrom(recvString, MAXRCVSTRING,
                                           sourceAddress, sourcePort);
                                           
+			
+			if (finished == true)
+			{
+				//sock.close(); Add this to receive ack 
+				ofstream myfile;
+				myfile.open ("example2.txt");
+				myfile << "Finished.\n" << iteration;
+				myfile.close();
+				std::cout << "The relay is finished" << endl;	
+				break;
+			}
+			
+			
 			sourceID = *((int *)(&recvString[bytesRcvd - 4])); //source ID
             itr = *((int *)(&recvString[bytesRcvd - 8])); //Iteration
             seq = *((int *)(&recvString[bytesRcvd - 12])); //Sequence number
-
-            if (iteration != itr || std::rand ()%100 < E1)
+			
+			// filter packet if it is not from the source
+			if (sourceID != source)
+			{
+				continue;	
+			}
+            
+            if (iteration != itr || std::rand ()%100 < (E1 + ovear_estimate))
             {
                 continue;
             }
@@ -367,12 +429,12 @@ int hana_heuristic()
             itr = *((int *)(&recvString[bytesRcvd - 8])); //Iteration
             seq = *((int *)(&recvString[bytesRcvd - 12])); //Sequence number
 
-               if (iteration != itr || (std::rand ()%100 < E1 && sourceID == source))
+               if (iteration != itr || (std::rand ()%100 < (E1 + ovear_estimate) && sourceID == source))
             {
                 continue;
             }
 
-            if (std::rand ()%100 < E2 && sourceID != source)
+            if (std::rand ()%100 < (E2 + ovear_estimate) && sourceID != source)
             {
                 continue;
             }
@@ -458,7 +520,7 @@ void start_helper()
 }
 
 
-void transmit_ack(int iteration)
+void transmit_ack(int iteration, int id)
 {
 
     int interval = 1000/(1000*100/100);
@@ -474,6 +536,7 @@ void transmit_ack(int iteration)
         // Encode a packet into the payload buffer
         std::vector<uint8_t> payload(2);
 		payload.insert(payload.end(), (char *)&iteration, ((char *)&iteration) + 4);
+        payload.insert(payload.end(), (char *)&id, ((char *)&id) + 4);
 
         try
         {
