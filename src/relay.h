@@ -7,6 +7,9 @@
 #include <string>
 #include <fstream>
 #include "PracticalSocket.h"  // For UDPSocket and SocketException
+#include <boost/thread/thread.hpp>
+#include <boost/thread/mutex.hpp>
+#include <boost/bind.hpp>
 
 using namespace std;
 
@@ -40,6 +43,13 @@ template <class Decoder> class relay {
 	int helper_avaliable;
 	int destinationID;
 	
+	double credit;
+	double budget;
+	
+	boost::mutex mutexQ;               
+	boost::mutex mutexCond;            // mutex for the condition variable
+	boost::condition_variable condQ;
+ 
  relay(std::string dest,
 			int destP,
             int r,
@@ -82,6 +92,7 @@ template <class Decoder> class relay {
 	relayID = rlyID;
 	destinationID = desID;
 	helper_avaliable = is_enabled;
+	budget = 0;
 }
 
 int is_enabled_helper()
@@ -119,6 +130,7 @@ void listen_ack(int iteration)
 				myfile.open ("example.txt");
 				myfile << "ACK is received!.\n" << iteration;
 				myfile.close();
+				condQ.notify_one();	
 
 				break;
 			}	
@@ -262,6 +274,8 @@ int forward()
 		forward_simple();
 	else if (strategy == "playncool") 
 		playNcool();
+	else if (strategy == "credit_base_playncool") 
+		credit_base_playNcool();
 	else if (strategy == "hana_heuristic")
 		hana_heuristic();
 
@@ -302,6 +316,7 @@ int playNcool()
 	    std::cout << "thershold: " << t << std::endl;  
 	}
 	
+	t = t * (1 - e1); 
 	boost::thread th;
 
 	receive_ack = boost::thread(&relay::listen_ack, this, iteration);		// listen to ack packets	
@@ -352,7 +367,7 @@ int playNcool()
             {
                 continue;
             }
-
+			
             if (output == "verbose")
             {
                 cout << "rank:" << m_decoder->rank() << endl;
@@ -370,8 +385,139 @@ int playNcool()
 		    {
 				
 				flage = true;
-				std::cout << "start helper" << endl;
+				std::cout << "start_helper:" << seq<<endl;
+				cout << "threshold:" << m_decoder->rank() << endl;
 				th = boost::thread(&relay::start_helper, this);	
+			
+			} 
+		}
+        catch (SocketException &e)
+        {
+            cerr << e.what() << endl;
+            exit(1);
+        }
+	}
+	th.join();
+	//receive_ack.join();		// no need to wait
+	return 0;
+}
+ 
+
+int credit_base_playNcool()
+{
+				
+    const int MAXRCVSTRING = 4096; // Longest string to receive
+    int received_packets = 0;
+    int seq = 0;
+    //UDPSocket sock(destPort);
+    char recvString[MAXRCVSTRING + 1]; // Buffer for echo string + \0
+    string sourceAddress;              // Address of datagram source
+    unsigned short sourcePort;         // Port of datagram source
+    int itr, rank;
+    vector<size_t> ranks(symbols);
+    UDPSocket FW_sock;
+	int sourceID;
+	int t = 0;                          // thershold for playncool
+	bool flage = false; 
+	float e1 = E1 / 100;
+	float e2 = E2 / 100;
+	float e3 = E3 / 100; 
+	float credit = 1/e1;
+
+
+	if ((1-e2) < (1-e1)*(e3))
+	{
+	
+		t = (float)(1) / ((1 - e1) * e3);
+	
+	}
+	else
+	{
+		t = ((float) -symbols * (-1 + e2 + e3 - e1 * e3 ))/(( 2 - e3 - e2 )*( 1 - e1 ) * e3 -(1 - e3) * ( -1 + e2 + e3 - e1 * e3 ));
+	    std::cout << "thershold: " << t << std::endl;  
+	}
+	
+	t = t * (1 - e1); 
+	boost::thread th;
+
+	receive_ack = boost::thread(&relay::listen_ack, this, iteration);		// listen to ack packets	
+
+    while (!m_decoder->is_complete())
+    {
+        try
+        {
+
+			if (finished == true)
+			{
+				//sock.close(); Add this to receive ack 
+				ofstream myfile;
+				myfile.open ("example2.txt");
+				myfile << "Finished.\n" << iteration;
+				myfile.close();
+				std::cout << "The relay is finished" << endl;	
+				break;
+			}
+			
+			int bytesRcvd = sock.recvFrom(recvString, MAXRCVSTRING,
+                                          sourceAddress, sourcePort);
+                                          
+			
+			if (finished == true)
+			{
+				//sock.close(); Add this to receive ack 
+				ofstream myfile;
+				myfile.open ("example2.txt");
+				myfile << "Finished.\n" << iteration;
+				myfile.close();
+				std::cout << "The relay is finished" << endl;	
+				break;
+			}
+			
+			
+			sourceID = *((int *)(&recvString[bytesRcvd - 4])); //source ID
+            itr = *((int *)(&recvString[bytesRcvd - 8])); //Iteration
+            seq = *((int *)(&recvString[bytesRcvd - 12])); //Sequence number
+			
+			// filter packet if it is not from the source
+			if (sourceID != source)
+			{
+				continue;	
+			}
+            
+            if (iteration != itr || std::rand ()%100 < (E1 + ovear_estimate))
+            {
+                continue;
+            }
+            
+            if (flage == true)
+			{
+				boost::mutex::scoped_lock lock( mutexQ );
+				budget += credit; 
+				condQ.notify_one();	
+			}
+			
+            if (output == "verbose")
+            {
+                cout << "rank:" << m_decoder->rank() << endl;
+                cout << "seq:" << seq << endl;
+                cout << "itr:" << itr << endl;
+                cout << "iteration:" << iteration << endl;
+                cout << "source ID:" << sourceID << endl;
+                cout << "budget:" << budget << endl;
+                cout << "credit:" << credit << endl;
+            }
+						
+
+		    rank = m_decoder->rank();
+		    m_decoder->decode( (uint8_t*)&recvString[0] );
+		    
+		    if (rank == t && flage == false)
+		    {
+				
+				flage = true;
+				std::cout << "start_helper:" << seq<<endl;
+				cout << "threshold:" << m_decoder->rank() << endl;
+				th = boost::thread(&relay::credit_base_helper, this);	
 			
 			} 
 		}
@@ -494,6 +640,9 @@ void start_helper()
         std::vector<uint8_t> payload(m_decoder->payload_size());
 		m_decoder->recode( &payload[0]);
 
+
+	
+	
 		payload.insert(payload.end(), (char *)&x, ((char *)&x) + 4);
 		payload.insert(payload.end(), (char *)&iteration, ((char *)&iteration) + 4);
 		payload.insert(payload.end(), (char *)&id, ((char *)&id) + 4);
@@ -518,6 +667,58 @@ void start_helper()
 	}
 	
 }
+  
+void credit_base_helper()
+{
+	
+	int x = 1;
+	UDPSocket sock;
+    int interval = 1000/(1000*rate/symbol_size);
+    boost::chrono::milliseconds dur(interval);
+    int i = 0;
+    
+	while (i < max_tx && finished == false)
+    {
+       	boost::mutex::scoped_lock lock(mutexQ);
+       
+        while( budget <= 0 && finished == false) // while - to guard agains spurious wakeups
+        {
+            condQ.wait(lock);
+        }
+    
+		if (finished == true)
+		{
+			std::cout << "The relay received ACK from destination" << endl;
+		}   
+
+		budget--;
+		i++;
+		
+		// Encode a packet into the payload buffer
+		std::vector<uint8_t> payload(m_decoder->payload_size());
+		m_decoder->recode( &payload[0]);
+	
+		payload.insert(payload.end(), (char *)&x, ((char *)&x) + 4);
+		payload.insert(payload.end(), (char *)&iteration, ((char *)&iteration) + 4);
+		payload.insert(payload.end(), (char *)&id, ((char *)&id) + 4);
+		x++;
+
+		try
+		{
+			// Repeatedly send the string (not including \0) to the server
+			sock.sendTo((char *)&payload[0], payload.size(), destAddress , destPort);
+		}
+		catch (SocketException &e)
+		{
+			cerr << e.what() << endl;
+			exit(0);
+		}
+	
+    
+	}
+
+}
+  
 
 
 void transmit_ack(int iteration, int id)
