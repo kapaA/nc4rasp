@@ -19,7 +19,7 @@ int main(int argc, char *argv[])
         string type = "source";
         string host = "localhost";
         int port = 5423;
-        int rate = 100;
+        int rate = 5;
         int iteration = 0;
         int max_tx = 1000000;
 		int id = 1;
@@ -83,20 +83,22 @@ int main(int argc, char *argv[])
             if (field == "binary")
             {
                 typedef kodo::sparse_full_rlnc_encoder<fifi::binary> rlnc_encoder;
-                send<rlnc_encoder>(host, port, rate, iteration, max_tx,
-                                   symbols, symbol_size, density, output, id, relayID, DestinationID);
+				auto send = new sender<rlnc_encoder>(host, port, rate, iteration, max_tx,
+                                   symbols, symbol_size, density, output, id, relayID, DestinationID, helper_flag, e1, e2, e3);
+				send->transmit();
             }
             else if (field == "binary8")
             {
                 typedef kodo::sparse_full_rlnc_encoder<fifi::binary8> rlnc_encoder;
-                send<rlnc_encoder>(host, port, rate, iteration, max_tx,
-                                   symbols, symbol_size, density, output, id, relayID, DestinationID);
-            }
+				auto send = new sender<rlnc_encoder>(host, port, rate, iteration, max_tx,
+                                   symbols, symbol_size, density, output, id, relayID, DestinationID, helper_flag, e1, e2, e3);
+				send->transmit();            }
             else if (field == "binary16")
             {
                 typedef kodo::sparse_full_rlnc_encoder<fifi::binary16> rlnc_encoder;
-                send<rlnc_encoder>(host, port, rate, iteration, max_tx,
-                                   symbols, symbol_size, density, output, id, relayID, DestinationID);
+                auto send = new sender<rlnc_encoder>(host, port, rate, iteration, max_tx,
+                                   symbols, symbol_size, density, output, id, relayID, DestinationID, helper_flag, e1, e2, e3);
+				send->transmit();
             }
         }
         else if (type == "destination")
