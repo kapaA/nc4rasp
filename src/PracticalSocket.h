@@ -111,6 +111,7 @@ public:
    *   @exception SocketException thrown WinSock clean up fails
    */
   static void cleanUp();
+  void close();
 
   /**
    *   Resolve the specified service for the specified protocol to the
