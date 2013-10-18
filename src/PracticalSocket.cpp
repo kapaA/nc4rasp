@@ -27,6 +27,7 @@
   #pragma comment (lib, "ws2_32.lib")
   #pragma comment (lib, "wsock32.lib")
 #else
+#include <iostream>
   #include <sys/types.h>       // For data types
   #include <sys/socket.h>      // For socket(), connect(), send(), and recv()
   #include <netdb.h>           // For gethostbyname()
@@ -104,7 +105,16 @@ Socket::Socket(int sockDesc) {
   this->sockDesc = sockDesc;
 }
 
+void Socket::close() {
+// ::close(this->sockDesc);
+ std::cerr << "shutdown" << std::endl;
+ ::shutdown(sockDesc, SHUT_RDWR);
+ ::close(sockDesc);
+ sockDesc = -1;
+}
 Socket::~Socket() {
+  if (sockDesc == -1)
+	return;
   #ifdef _WIN32
     ::closesocket(sockDesc);
   #else
