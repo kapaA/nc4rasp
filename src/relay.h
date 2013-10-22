@@ -37,18 +37,20 @@ template <class Decoder> class relay {
 	bool finished ;						// flage showing the destination is done or not
 	boost::thread receive_ack; 
 	UDPSocket sock;
+	UDPSocket sock_ack;
+	int ackPort;
 	int source;
 	int relayID;
 	int helperID;
 	int helper_avaliable;
 	int destinationID;
+	int credit_app;
 	
 	double credit;
 	double budget;
-	
+	int total_budget;
 	boost::mutex mutexQ;               
-	boost::mutex mutexCond;            // mutex for the condition variable
-	boost::condition_variable condQ;
+	boost::condition_variable_any condQ;
  
  relay(std::string dest,
 			int destP,
@@ -69,7 +71,8 @@ template <class Decoder> class relay {
             int rlyID,
             int desID,
             int helperID,
-            int is_enabled)
+            int is_enabled,
+            int crd_app)
 {
 	ovear_estimate = estimate;
 	destAddress = dest;
@@ -93,6 +96,9 @@ template <class Decoder> class relay {
 	destinationID = desID;
 	helper_avaliable = is_enabled;
 	budget = 0;
+	ackPort = 12345;
+    sock_ack.setLocalPort(ackPort);
+	credit_app = crd_app;
 }
 
 int is_enabled_helper()
@@ -102,9 +108,7 @@ return helper_avaliable;
 
 void listen_ack(int iteration)
 {
-	int ackPort = 12345;	
     const int MAXRCVSTRING = 4096; // Longest string to receive
-    UDPSocket sock_ack(ackPort);
     char recvString[MAXRCVSTRING + 1]; // Buffer for echo string + \0
     string sourceAddress;              // Address of datagram source
     unsigned short sourcePort;         // Port of datagram source
@@ -122,8 +126,11 @@ void listen_ack(int iteration)
 
             
             if (itr == iteration && ACKsource == destinationID)
-			{
+			{	
+				boost::mutex::scoped_lock lock( mutexQ );
 				std::cout << "ACK is received!" << endl;
+				std::cerr << "ACK is received" << std::endl;
+
 				finished = true;
 				sock.close();
 				ofstream myfile;
@@ -131,7 +138,6 @@ void listen_ack(int iteration)
 				myfile << "ACK is received!.\n" << iteration;
 				myfile.close();
 				condQ.notify_one();	
-
 				break;
 			}	
             
@@ -244,7 +250,7 @@ int forward_simple()
 	
 	transmit_ack(itr, id);
 	std::cout << "start helper" << endl;
-	boost::thread t(&relay::start_helper, this);	
+	boost::thread t(&relay::start_helper, this, x);	
 	t.join();
 	
     if (output == "verbose")
@@ -263,6 +269,275 @@ int forward_simple()
 }            
             
 
+int forward_helper_stupid()
+{	
+    const int MAXRCVSTRING = 4096; // Longest string to receive
+    int received_packets = 0;
+    int seq = 0;
+    char recvString[MAXRCVSTRING + 1]; // Buffer for echo string + \0
+    string sourceAddress;              // Address of datagram source
+    unsigned short sourcePort;         // Port of datagram source
+    int itr, rank;
+    vector<size_t> ranks(symbols);
+    UDPSocket FW_sock;
+	int x = 1;
+    int sourceID;
+	bool helper_is_started = false;
+	
+	receive_ack = boost::thread(&relay::listen_ack, this, iteration);		// listen to ack packets	
+	boost::thread t; // helper thread
+	
+    while (!m_decoder->is_complete())
+    {
+   
+		if (finished == true)
+		{
+			//sock.close(); Add this to receive ack 
+			ofstream myfile;
+			myfile.open ("example2.txt");
+			myfile << "Finished.\n" << iteration;
+			myfile.close();
+			std::cout << "The relay is finished" << endl;	
+			break;
+		}
+	
+		
+		int bytesRcvd = sock.recvFrom(recvString, MAXRCVSTRING,
+									  sourceAddress, sourcePort);
+									  
+		sourceID = *((int *)(&recvString[bytesRcvd - 4])); //source ID
+		itr = *((int *)(&recvString[bytesRcvd - 8])); //Iteration
+	
+		seq = *((int *)(&recvString[bytesRcvd - 12])); //Sequence number
+		
+		if (helper_is_started == false)
+		{
+		helper_is_started = true;
+		boost::thread t(&relay::start_helper, this, 1);			
+		}
+		
+		if (finished == true)
+		{
+			//sock.close(); Add this to receive ack 
+			ofstream myfile;
+			myfile.open ("example2.txt");
+			myfile << "Finished.\n" << iteration;
+			myfile.close();
+			std::cout << "The relay is finished" << endl;	
+			break;
+		}
+	
+	
+		// filter the packet from the other nodes
+		if (sourceID != source)
+		{
+			continue;	
+		}
+		
+		if (iteration != itr || std::rand ()%100 < (E1 + ovear_estimate))
+		{
+			continue;
+		}
+		
+	   
+		rank = m_decoder->rank();
+		m_decoder->decode( (uint8_t*)&recvString[0] );
+	   
+		if (output == "verbose")
+		{
+			cout << "rank:" << m_decoder->rank() << endl;
+			cout << "seq:" << seq << endl;
+			cout << "itr:" << itr << endl;
+			cout << "iteration:" << iteration << endl;
+			cout << "source ID:" << sourceID << endl;
+		}
+		
+        
+       
+    }
+	
+	std::cout << "start helper" << endl;
+	t.join();
+	
+    if (output == "verbose")
+    {
+        std::cout << "ITERATION FINISHED: "<< iteration << std::endl;
+        std::cout << "last_transmitted_seq_num:"<< seq << std::endl;
+        std::cout << "received_packets:" << received_packets++ << endl;
+    }
+    else
+    {
+        print_result(ranks, received_packets, seq);
+    }
+
+    return 0;
+
+            
+}
+
+
+int forward_helper()
+{
+	
+    const int MAXRCVSTRING = 4096; // Longest string to receive
+    int received_packets = 0;
+    int seq = 0;
+    char recvString[MAXRCVSTRING + 1]; // Buffer for echo string + \0
+    string sourceAddress;              // Address of datagram source
+    unsigned short sourcePort;         // Port of datagram source
+    int itr, rank;
+    vector<size_t> ranks(symbols);
+    UDPSocket FW_sock;
+	int x = 1;
+    int sourceID;
+
+	receive_ack = boost::thread(&relay::listen_ack, this, iteration);		// listen to ack packets	
+
+    while (!m_decoder->is_complete())
+    {
+        try
+        {
+			if (finished == true)
+			{
+				//sock.close(); Add this to receive ack 
+				ofstream myfile;
+				myfile.open ("example2.txt");
+				myfile << "Finished.\n" << iteration;
+				myfile.close();
+				std::cout << "The relay is finished" << endl;	
+				break;
+			}
+		
+			
+			int bytesRcvd = sock.recvFrom(recvString, MAXRCVSTRING,
+                                          sourceAddress, sourcePort);
+                                          
+			sourceID = *((int *)(&recvString[bytesRcvd - 4])); //source ID
+            itr = *((int *)(&recvString[bytesRcvd - 8])); //Iteration
+        
+            seq = *((int *)(&recvString[bytesRcvd - 12])); //Sequence number
+			
+			if (finished == true)
+			{
+				//sock.close(); Add this to receive ack 
+				ofstream myfile;
+				myfile.open ("example2.txt");
+				myfile << "Finished.\n" << iteration;
+				myfile.close();
+				std::cout << "The relay is finished" << endl;	
+				break;
+			}
+		
+		
+			// filter the packet from the other nodes
+			if (sourceID != source)
+			{
+				continue;	
+			}
+            
+            if (iteration != itr || std::rand ()%100 < (E1 + ovear_estimate))
+            {
+                continue;
+            }
+			
+           
+		    rank = m_decoder->rank();
+		    m_decoder->decode( (uint8_t*)&recvString[0] );
+		   
+		    if (output == "verbose")
+            {
+                cout << "rank:" << m_decoder->rank() << endl;
+                cout << "seq:" << seq << endl;
+                cout << "itr:" << itr << endl;
+                cout << "iteration:" << iteration << endl;
+                cout << "source ID:" << sourceID << endl;
+            }
+		      
+			std::vector<uint8_t> payload(m_decoder->payload_size());
+			m_decoder->recode( &payload[0]);
+		    
+			payload.insert(payload.end(), (char *)&x, ((char *)&x) + 4);
+			payload.insert(payload.end(), (char *)&iteration, ((char *)&iteration) + 4);
+			payload.insert(payload.end(), (char *)&id, ((char *)&id) + 4);
+		    x++;
+		    
+			try
+			{
+				// Repeatedly send the string (not including \0) to the server
+				FW_sock.sendTo((char *)&payload[0], payload.size(), destAddress , destPort);
+				
+				//boost::this_thread::sleep_for(dur);
+			}
+			catch (SocketException &e)
+			{
+				cerr << e.what() << endl;
+				exit(0);
+			}
+		    
+		    
+			received_packets++;
+			//cout << "received_packets: " << received_packets << endl << endl;		
+
+            if (rank == m_decoder->rank()) //If rank has not changed the received package is liniar dependent              
+				ranks[rank]++; //Add a linear dependent cnt to this spot
+        }
+        catch (SocketException &e)
+        {
+            cerr << e.what() << endl;
+            exit(1);
+        }
+    }
+	
+	std::cout << "start helper" << endl;
+	boost::thread t(&relay::start_helper, this, x);	
+	t.join();
+	
+    if (output == "verbose")
+    {
+        std::cout << "ITERATION FINISHED: "<< iteration << std::endl;
+        std::cout << "last_transmitted_seq_num:"<< seq << std::endl;
+        std::cout << "received_packets:" << received_packets++ << endl;
+    }
+    else
+    {
+        print_result(ranks, received_packets, seq);
+    }
+
+    return 0;
+
+}            
+            
+int set_credit ()
+{
+	float e1 = E1 / 100;
+	float e2 = E2 / 100;
+	float e3 = E3 / 100; 
+	if (credit_app == 1)
+		credit = (float) 1/(1 - e2);
+	else 
+		credit = (float) 1/(1 - e1);
+	
+	int t;
+	int d_r;
+
+	if ((1-e2) < (1-e1)*(e3))
+	{
+	
+		t = (float)(1) / ((1 - e1) * e3);
+	
+	}
+	else
+	{
+		t = ((float) -symbols * (-1 + e2 + e3 - e1 * e3 ))/(( 2 - e3 - e2 )*( 1 - e1 ) * e3 -(1 - e3) * ( -1 + e2 + e3 - e1 * e3 ));
+	}
+	
+	d_r = (1 - e3) * t; 
+	total_budget = (symbols - d_r)/( 2 - ( e2 + e3 ));
+	
+}
+
+
+
 int forward()
             
 {
@@ -271,13 +546,17 @@ int forward()
     m_decoder = m_decoder_factory.build();
 
 	if (strategy == "simple")
-		forward_simple();
+		forward_helper();
 	else if (strategy == "playncool") 
 		playNcool();
 	else if (strategy == "credit_base_playncool") 
 		credit_base_playNcool();
 	else if (strategy == "hana_heuristic")
 		hana_heuristic();
+	else if (strategy == "relay_simple")
+		forward_simple();
+	else if (strategy == "stupid")
+		forward_helper_stupid();
 
 	return 0;
 
@@ -302,7 +581,7 @@ int playNcool()
 	float e1 = E1 / 100;
 	float e2 = E2 / 100;
 	float e3 = E3 / 100; 
-	
+	int x = 1;
 
 	if ((1-e2) < (1-e1)*(e3))
 	{
@@ -387,7 +666,7 @@ int playNcool()
 				flage = true;
 				std::cout << "start_helper:" << seq<<endl;
 				cout << "threshold:" << m_decoder->rank() << endl;
-				th = boost::thread(&relay::start_helper, this);	
+				th = boost::thread(&relay::start_helper, this, x);	
 			
 			} 
 		}
@@ -405,7 +684,7 @@ int playNcool()
 
 int credit_base_playNcool()
 {
-				
+	set_credit (); 					// set credit for the helper
     const int MAXRCVSTRING = 4096; // Longest string to receive
     int received_packets = 0;
     int seq = 0;
@@ -422,7 +701,6 @@ int credit_base_playNcool()
 	float e1 = E1 / 100;
 	float e2 = E2 / 100;
 	float e3 = E3 / 100; 
-	float credit = 1/e1;
 
 
 	if ((1-e2) < (1-e1)*(e3))
@@ -455,6 +733,7 @@ int credit_base_playNcool()
 				myfile << "Finished.\n" << iteration;
 				myfile.close();
 				std::cout << "The relay is finished" << endl;	
+				
 				break;
 			}
 			
@@ -489,7 +768,11 @@ int credit_base_playNcool()
                 continue;
             }
             
-            if (flage == true)
+						
+		    rank = m_decoder->rank();
+		    m_decoder->decode( (uint8_t*)&recvString[0] );
+
+            if (flage == true && rank != m_decoder->rank())
 			{
 				boost::mutex::scoped_lock lock( mutexQ );
 				budget += credit; 
@@ -505,13 +788,14 @@ int credit_base_playNcool()
                 cout << "source ID:" << sourceID << endl;
                 cout << "budget:" << budget << endl;
                 cout << "credit:" << credit << endl;
+            	ofstream myfile;
+				myfile.open ("rank.txt");
+				myfile << "rank.\n" << rank;
+				myfile.close();
             }
-						
 
-		    rank = m_decoder->rank();
-		    m_decoder->decode( (uint8_t*)&recvString[0] );
 		    
-		    if (rank == t && flage == false)
+		    if (m_decoder->rank() == t && flage == false)
 		    {
 				
 				flage = true;
@@ -550,7 +834,7 @@ int hana_heuristic()
 	int t = 0;                          // thershold for playncool
 	int source = 1;                     // source ID is one
 	bool flage = false; 
-	
+	int x = 1;
 	float e1 = E1 / 100;
 	float e2 = E2 / 100;
 	float e3 = E3 / 100; 
@@ -608,7 +892,7 @@ int hana_heuristic()
 				
 				flage = true;
 				std::cout << "start helper" << endl;
-				th = boost::thread(&relay::start_helper, this);	
+				th = boost::thread(&relay::start_helper, this, x);	
 			
 			} 
 		}
@@ -623,10 +907,9 @@ int hana_heuristic()
 	return 0;
 }
   
-void start_helper()
+void start_helper(int x)
 {
 	
-	int x = 1;
 	UDPSocket sock;
     int interval = 1000/(1000*rate/symbol_size);
     boost::chrono::milliseconds dur(interval);
@@ -639,9 +922,6 @@ void start_helper()
         // Encode a packet into the payload buffer
         std::vector<uint8_t> payload(m_decoder->payload_size());
 		m_decoder->recode( &payload[0]);
-
-
-	
 	
 		payload.insert(payload.end(), (char *)&x, ((char *)&x) + 4);
 		payload.insert(payload.end(), (char *)&iteration, ((char *)&iteration) + 4);
@@ -660,7 +940,7 @@ void start_helper()
             exit(0);
         }
     }
-    
+    sock_ack.close();
 	if (finished == true)
 	{
 		std::cout << "The relay received ACK from destination" << endl;
@@ -690,7 +970,15 @@ void credit_base_helper()
 		{
 			std::cout << "The relay received ACK from destination" << endl;
 		}   
-
+		
+		if (total_budget < 0)
+		{
+			std::cout << "The budget is finished!"<< endl;
+			break;
+		}
+			
+			
+		total_budget--;
 		budget--;
 		i++;
 		

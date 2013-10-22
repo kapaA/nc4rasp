@@ -4,6 +4,7 @@
 #include <iostream>           // For cout and cerr
 #include <cstdlib>            // For atoi()
 #include <vector>
+#include <fstream>
 
 
 #include "PracticalSocket.h"  // For UDPSocket and SocketException
@@ -25,33 +26,41 @@ void print_result(vector<size_t> &ranks, size_t rx, size_t seq)
 void transmit_ack(int iteration, int id)
 {
 
-    int interval = 1000/(1000*100/100);
+    int interval = 1;
     boost::chrono::milliseconds dur(interval);
     UDPSocket sock;
-	string ackAddress = "10.0.0.255";
+	string ackAddress = "172.26.13.255";
 	int ackPort = 12345;
     int i = 0;
-    
-    while (i < 5)
+	
+	ofstream myfile;
+	myfile.open ("example2.txt");
+	myfile << "Finished.\n" << iteration;
+	myfile.close();
+	while (i < 50)
     {
-        i++;
-        // Encode a packet into the payload buffer
-        std::vector<uint8_t> payload(2);
-		payload.insert(payload.end(), (char *)&iteration, ((char *)&iteration) + 4);
-        payload.insert(payload.end(), (char *)&id, ((char *)&id) + 4);
+		i++;
 
-        try
-        {
-            // Repeatedly send the string (not including \0) to the server
-            sock.sendTo((char *)&payload[0], payload.size(), ackAddress , ackPort);
-            boost::this_thread::sleep_for(dur);
-        }
-        catch (SocketException &e)
-        {
-            cerr << e.what() << endl;
-            exit(0);
-        }
-    }
+		interval = std::rand() % 5;
+		boost::chrono::milliseconds dur(interval);
+
+		// Encode a packet into the payload buffer
+		std::vector<uint8_t> payload(2);
+		payload.insert(payload.end(), (char *)&iteration, ((char *)&iteration) + 4);
+		payload.insert(payload.end(), (char *)&id, ((char *)&id) + 4);
+
+		try
+		{
+		// Repeatedly send the string (not including \0) to the server
+    		sock.sendTo((char *)&payload[0], payload.size(), ackAddress , ackPort);
+	    	boost::this_thread::sleep_for(dur);
+		}
+		catch (SocketException &e)
+		{
+		    cerr << e.what() << endl;
+			exit(0);
+		}
+	}
 }
 
 
@@ -152,6 +161,11 @@ int receive(int destPort,
 				cout << "transmit_from_source:" << tx_src << endl;
 				cout << "received_from_relay:" << recevied_rly << endl;
 				cout << "transmit_from_relay:" << tx_rly << endl;
+				ofstream myfile;
+				myfile.open ("rank.txt");
+				myfile << "rank.\n" << rank;
+				myfile.close();
+
             }
 			
 
