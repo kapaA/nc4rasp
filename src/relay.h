@@ -161,11 +161,11 @@ int forward_simple()
     char recvString[MAXRCVSTRING + 1]; // Buffer for echo string + \0
     string sourceAddress;              // Address of datagram source
     unsigned short sourcePort;         // Port of datagram source
-    int itr, rank;
+    int itr = 0, rank = 0;
     vector<size_t> ranks(symbols);
     UDPSocket FW_sock;
 	int x = 1;
-    int sourceID;
+    int sourceID = 0;
 
 	receive_ack = boost::thread(&relay::listen_ack, this, iteration);		// listen to ack packets	
 
@@ -707,17 +707,21 @@ int credit_base_playNcool()
 	{
 	
 		t = (float)(1) / ((1 - e1) * e3);
-	
+		t = t * (1 - e1);
+		t = t + 20;
 	}
 	else
 	{
 		t = ((float) -symbols * (-1 + e2 + e3 - e1 * e3 ))/(( 2 - e3 - e2 )*( 1 - e1 ) * e3 -(1 - e3) * ( -1 + e2 + e3 - e1 * e3 ));
 	    std::cout << "thershold: " << t << std::endl;  
+		t = t * (1 - e1);
 	}
 	
-	t = t * (1 - e1); 
+	 
+	
 	boost::thread th;
-
+	int counter = -100;
+	bool flag_counter = false;
 	receive_ack = boost::thread(&relay::listen_ack, this, iteration);		// listen to ack packets	
 
     while (!m_decoder->is_complete())
@@ -776,7 +780,24 @@ int credit_base_playNcool()
 			{
 				boost::mutex::scoped_lock lock( mutexQ );
 				budget += credit; 
-				condQ.notify_one();	
+				condQ.notify_one();
+				// adding extra credit at the end
+				if (m_decoder->rank() == 20 && flag_counter == false)
+				{
+					flag_counter = true;
+					credit = credit*1.25;
+					counter = 80 ;
+				}
+				if (counter > 0)
+				{
+					counter--;
+				}
+				else if(counter == 0)
+				{
+					credit = credit/1.25;
+					counter = -100;
+				}
+				
 			}
 			
             if (output == "verbose")
@@ -793,9 +814,8 @@ int credit_base_playNcool()
 				myfile << "rank.\n" << rank;
 				myfile.close();
             }
-
 		    
-		    if (m_decoder->rank() == t && flage == false)
+		    if (m_decoder->rank() >= t && flage == false)
 		    {
 				
 				flage = true;

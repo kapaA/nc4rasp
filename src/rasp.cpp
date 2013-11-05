@@ -2,6 +2,7 @@
 #include "sender.h"
 #include "receiver.h"
 #include "relay.h"
+#include "link_estimator.h"
 
 #include <boost/program_options.hpp>
 
@@ -21,7 +22,7 @@ int main(int argc, char *argv[])
         int port = 5423;
         int rate = 5;
         int iteration = 0;
-        int max_tx = 1000000;
+        int max_tx = 10000;
 		int id = 1;
 		std::string strategy = "simple";
 		double e1 = 0;
@@ -41,6 +42,8 @@ int main(int argc, char *argv[])
 		int helperID = 1000;
 		int DestinationID = 2;
 		int helper_flag = 0;
+		int credit_app = 2;
+		bool link_quality = false;
         po::options_description desc("Allowed options");
         desc.add_options()
             ("help", "produce help message")
@@ -61,12 +64,14 @@ int main(int argc, char *argv[])
             ("relayID", po::value<int>(&relayID), "relay ID")
             ("destinationID", po::value<int>(&DestinationID), "DestinationID")
             ("helperID", po::value<int>(&helperID), "helperID")
+            ("creditapp", po::value<int>(&credit_app), "helper credit app")
             ("density", po::value<double>(&density), "coding vector density")
             ("synteticLoss", po::value<double>(&loss), "sysntatic loss")
             ("e1", po::value<double>(&e1), "error between source and relay")
             ("e2", po::value<double>(&e2), "error between relay and destination")
             ("e3", po::value<double>(&e3), "error between source and destination")
-            ("format", po::value<string>(&output), "output format: verbose, python");
+            ("format", po::value<string>(&output), "output format: verbose, python")
+            ("linkquality", po::value<bool>(&link_quality), "enable the link quality mesurment");
 
         po::variables_map vm;
         po::store(po::parse_command_line(argc, argv , desc), vm);
@@ -77,7 +82,14 @@ int main(int argc, char *argv[])
             std::cout << desc << std::endl;
             return 1;
         }
-
+        
+		if (link_quality == true)
+		{
+			auto link = new linkEstimator(id, max_tx, rate, port);
+			link->send_hello();
+			return 1;
+		}
+		
         if (type == "source")
         {
             if (field == "binary")
@@ -124,20 +136,21 @@ int main(int argc, char *argv[])
             if (field == "binary")
             {
                 typedef kodo::full_rlnc_decoder<fifi::binary> rlnc_decoder;
-                auto r = new relay<rlnc_decoder>(host,port, rate, iteration, symbols, symbol_size, max_tx, e1, e2, e3,loss, output, id, strategy, ovear_estimate, sourceID, relayID, DestinationID, helperID, helper_flag);
+                auto r = new relay<rlnc_decoder>(host,port, rate, iteration, symbols, symbol_size, max_tx, e1, e2, e3,loss, output, id, strategy, ovear_estimate, sourceID, relayID, DestinationID, helperID, helper_flag, credit_app);
                 r->forward();
             }
             else if (field == "binary8")
             {
-                typedef kodo::full_rlnc_decoder<fifi::binary> rlnc_decoder;
-                auto r = new relay<rlnc_decoder>(host,port, rate, iteration, symbols, symbol_size, max_tx, e1, e2, e3,loss, output, id, strategy, ovear_estimate, sourceID, relayID, DestinationID, helperID, helper_flag);
+                typedef kodo::full_rlnc_decoder<fifi::binary8> rlnc_decoder;
+                auto r = new relay<rlnc_decoder>(host,port, rate, iteration, symbols, symbol_size, max_tx, e1, e2, e3,loss, output, id, strategy, ovear_estimate, sourceID, relayID, DestinationID, helperID, helper_flag, credit_app);
                 r->forward();
                             }
             else if (field == "binary16")
             {
-                typedef kodo::full_rlnc_decoder<fifi::binary> rlnc_decoder;
-                auto r = new relay<rlnc_decoder>(host,port, rate, iteration, symbols, symbol_size, max_tx, e1, e2, e3,loss, output, id, strategy, ovear_estimate, sourceID, relayID, DestinationID, helperID, helper_flag);
-                r->forward();            }
+                typedef kodo::full_rlnc_decoder<fifi::binary16> rlnc_decoder;
+                auto r = new relay<rlnc_decoder>(host,port, rate, iteration, symbols, symbol_size, max_tx, e1, e2, e3,loss, output, id, strategy, ovear_estimate, sourceID, relayID, DestinationID, helperID, helper_flag, credit_app);
+                r->forward();            
+             }
         }
     }
     catch (std::exception& e)
@@ -149,5 +162,8 @@ int main(int argc, char *argv[])
         std::cerr << "Exception of unknown type!\n";
     }
 
+
+	//auto link = new linkEstimator();
+	
     return 0;
 }
