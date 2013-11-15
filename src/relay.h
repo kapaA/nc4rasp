@@ -10,6 +10,7 @@
 #include <boost/thread/thread.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/bind.hpp>
+#include "link_estimator.h"
 
 using namespace std;
 
@@ -30,11 +31,13 @@ template <class Decoder> class relay {
 	double E1;
 	double E2;
 	double E3;
-	double loss;
+	bool syntetic_loss;
 	std::string output;
 	int id;
 	std::string strategy;
 	bool finished ;						// flage showing the destination is done or not
+	bool timer_flage;
+	
 	boost::thread receive_ack; 
 	UDPSocket sock;
 	UDPSocket sock_ack;
@@ -51,7 +54,9 @@ template <class Decoder> class relay {
 	int total_budget;
 	boost::mutex mutexQ;               
 	boost::condition_variable_any condQ;
- 
+ 	std::map<uint32_t , boost::shared_ptr<linkEstimator::LinkQualityEntry>> link_quality_table;
+	int doublicate;
+	
  relay(std::string dest,
 			int destP,
             int r,
@@ -62,7 +67,7 @@ template <class Decoder> class relay {
 			double e_s_r,
 			double e_r_d,
 			double e_s_d,
-            double l,
+            bool l,
             std::string out,
             int identification,
             std::string st,
@@ -85,7 +90,7 @@ template <class Decoder> class relay {
 	E1 = e_s_r;
 	E2 = e_r_d;
 	E3 = e_s_d;
-	loss = l;
+	syntetic_loss = l;
 	output = out;
 	id = identification;
 	strategy = st;
@@ -99,12 +104,45 @@ template <class Decoder> class relay {
 	ackPort = 12345;
     sock_ack.setLocalPort(ackPort);
 	credit_app = crd_app;
+	timer_flage = false;
 }
 
 int is_enabled_helper()
 {
-return helper_avaliable;
+	return helper_avaliable;
 }
+
+void timer()
+{
+	
+	boost::posix_time::ptime now; 
+	boost::posix_time::time_duration diff;
+	boost::posix_time::ptime start;
+	
+	start  = boost::posix_time::microsec_clock::local_time();
+	now = boost::posix_time::microsec_clock::local_time();
+	diff = start - now;
+	boost::chrono::milliseconds dur(100);
+    boost::posix_time::time_duration threshold(100);
+    /*
+	while (diff.total_microseconds() < threshold && timer_flage ==  false )
+	{
+		boost::this_thread::sleep_for(dur);
+		now = boost::posix_time::microsec_clock::local_time();
+		diff = start - now;
+	}
+	
+	if (timer_flage == false)
+	{
+		cout << "hard stop: " << diff.total_microseconds()<<endl;
+		finished = true;
+		sock.close();
+		sock_ack.close();
+		condQ.notify_one();	
+
+	}*/
+}
+
 
 void listen_ack(int iteration)
 {
@@ -127,6 +165,7 @@ void listen_ack(int iteration)
             
             if (itr == iteration && ACKsource == destinationID)
 			{	
+				timer_flage == true;	
 				boost::mutex::scoped_lock lock( mutexQ );
 				std::cout << "ACK is received!" << endl;
 				std::cerr << "ACK is received" << std::endl;
@@ -192,18 +231,19 @@ int forward_simple()
 			}
 			
             // drop the packet because of the loss
-            if (iteration != itr || (std::rand ()%100 < (E3 + ovear_estimate) && sourceID == source))
+            if (iteration != itr || (std::rand ()%100 < (E3 + ovear_estimate) && sourceID == source && syntetic_loss == true))
             {
                 continue;
             }
             
-            if (iteration != itr || (std::rand ()%100 < (E2 + ovear_estimate) && sourceID == relayID))
+            if (iteration != itr || (std::rand ()%100 < (E2 + ovear_estimate) && sourceID == relayID && syntetic_loss == true))
             {
 				continue;
 			}
             
 
-            if (output == "verbose") {
+            if (output == "verbose") 
+            {
                 cout << "rank:" << m_decoder->rank() << endl;
                 cout << "seq:" << seq << endl;
                 cout << "itr:" << itr << endl;
@@ -692,23 +732,25 @@ int credit_base_playNcool()
     char recvString[MAXRCVSTRING + 1]; // Buffer for echo string + \0
     string sourceAddress;              // Address of datagram source
     unsigned short sourcePort;         // Port of datagram source
-    int itr, rank;
+    int itr, rank = 0;
     vector<size_t> ranks(symbols);
     UDPSocket FW_sock;
-	int sourceID;
+	int sourceID = 0;
 	int t = 0;                          // thershold for playncool
 	bool flage = false; 
 	float e1 = E1 / 100;
 	float e2 = E2 / 100;
 	float e3 = E3 / 100; 
-
+	
+	bool close_to_source = false;
 
 	if ((1-e2) < (1-e1)*(e3))
 	{
 	
 		t = (float)(1) / ((1 - e1) * e3);
 		t = t * (1 - e1);
-		t = t + 20;
+		t = t + 10;
+		close_to_source = true;
 	}
 	else
 	{
@@ -722,7 +764,8 @@ int credit_base_playNcool()
 	boost::thread th;
 	int counter = -100;
 	bool flag_counter = false;
-	receive_ack = boost::thread(&relay::listen_ack, this, iteration);		// listen to ack packets	
+	receive_ack = boost::thread(&relay::listen_ack, this, iteration);		// listen to ack packets		
+	boost::thread run_time = boost::thread(&relay::timer, this);		// listen to ack packets		
 
     while (!m_decoder->is_complete())
     {
@@ -767,7 +810,9 @@ int credit_base_playNcool()
 				continue;	
 			}
             
-            if (iteration != itr || std::rand ()%100 < (E1 + ovear_estimate))
+            update_loss(sourceID, seq);
+            
+            if (iteration != itr || (std::rand ()%100 < (E1 + ovear_estimate) && syntetic_loss == true))
             {
                 continue;
             }
@@ -782,20 +827,23 @@ int credit_base_playNcool()
 				budget += credit; 
 				condQ.notify_one();
 				// adding extra credit at the end
-				if (m_decoder->rank() == 20 && flag_counter == false)
+				if (close_to_source == true)
 				{
-					flag_counter = true;
-					credit = credit*1.25;
-					counter = 80 ;
-				}
-				if (counter > 0)
-				{
-					counter--;
-				}
-				else if(counter == 0)
-				{
-					credit = credit/1.25;
-					counter = -100;
+					if (m_decoder->rank() == 50 && flag_counter == false)
+					{
+						flag_counter = true;
+						credit = credit*1.25;
+						counter = 30 ;
+					}
+					if (counter > 0)
+					{
+						counter--;
+					}
+					else if(counter == 0)
+					{
+						credit = credit/1.25;
+						counter = -100;
+					}
 				}
 				
 			}
@@ -832,6 +880,7 @@ int credit_base_playNcool()
         }
 	}
 	th.join();
+	//run_time.join();
 	//receive_ack.join();		// no need to wait
 	return 0;
 }
@@ -989,6 +1038,7 @@ void credit_base_helper()
 		if (finished == true)
 		{
 			std::cout << "The relay received ACK from destination" << endl;
+			break;
 		}   
 		
 		if (total_budget < 0)
@@ -1025,6 +1075,7 @@ void credit_base_helper()
     
 	}
 
+	print_loss_result();
 }
   
 
@@ -1060,9 +1111,56 @@ void transmit_ack(int iteration, int id)
         }
     }
 }
+void update_loss(int id, int seq)
+{
+	if (link_quality_table.find(id) == link_quality_table.end() )
+	{
+		boost::shared_ptr<linkEstimator::LinkQualityEntry> new_entry(new linkEstimator::LinkQualityEntry);
+		std::cout << "new Entry " <<std::endl;
+		new_entry->last = seq;
+		new_entry->first = seq;
+		new_entry->received = 1;
+		new_entry->last_refresh = 0;
+		
+		//boost::shared_ptr<LinkQualityEntry> new_entry1(&new_entry); 
+		link_quality_table[id] = new_entry;
 
+	}
+	else 
+	{
+		boost::shared_ptr<linkEstimator::LinkQualityEntry> entry = link_quality_table[id];
+		if (seq <= entry->last)
+		{
+			doublicate++;
+			return;
+		}
+		
+  
+		entry->received++;
+		entry->last = seq;
+		entry->lost_prob = (entry->last - entry->first - entry->received + 1)/(entry->last - entry->first + 1) ;
+		entry->last_refresh = 0;
+		
+	}
+}
 
-            
+void print_loss_result()
+{
+	std::map<uint32_t , boost::shared_ptr<linkEstimator::LinkQualityEntry>>::iterator itr = link_quality_table.begin();;
+	std::cout << "result:"<< link_quality_table.size() << endl;	
+
+	while (itr != link_quality_table.end())
+	{
+		std::cout << "ID:"<< itr->first<< endl;	
+		std::cout << "loss:"<< itr->second->lost_prob<< endl;
+		std::cout << "last:"<< itr->second->last<< endl;
+		std::cout << "first:"<< itr->second->first<< endl;
+		std::cout << "received:"<< itr->second->received<< endl;
+		itr++;	
+	}
+
+}
+		
 };
 
 
