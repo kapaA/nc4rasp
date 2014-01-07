@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
         int symbol_size = 100;
         double density = 0.0;
         string output = "verbose";
-		double loss = 0.0;
+		bool syntetic_loss = true;
 		double ovear_estimate = 0;
 		int sourceID = 1;
 		int relayID = 2;
@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
             ("helperID", po::value<int>(&helperID), "helperID")
             ("creditapp", po::value<int>(&credit_app), "helper credit app")
             ("density", po::value<double>(&density), "coding vector density")
-            ("synteticLoss", po::value<double>(&loss), "sysntatic loss")
+            ("synteticLoss", po::value<bool>(&syntetic_loss), "syntatic loss is true by defult")
             ("e1", po::value<double>(&e1), "error between source and relay")
             ("e2", po::value<double>(&e2), "error between relay and destination")
             ("e3", po::value<double>(&e3), "error between source and destination")
@@ -96,20 +96,20 @@ int main(int argc, char *argv[])
             {
                 typedef kodo::sparse_full_rlnc_encoder<fifi::binary> rlnc_encoder;
 				auto send = new sender<rlnc_encoder>(host, port, rate, iteration, max_tx,
-                                   symbols, symbol_size, density, output, id, relayID, DestinationID, helper_flag, e1, e2, e3);
+                                   symbols, symbol_size, density, output, id, relayID, DestinationID, helper_flag, e1, e2, e3, syntetic_loss);
 				send->transmit();
             }
             else if (field == "binary8")
             {
                 typedef kodo::sparse_full_rlnc_encoder<fifi::binary8> rlnc_encoder;
 				auto send = new sender<rlnc_encoder>(host, port, rate, iteration, max_tx,
-                                   symbols, symbol_size, density, output, id, relayID, DestinationID, helper_flag, e1, e2, e3);
+                                   symbols, symbol_size, density, output, id, relayID, DestinationID, helper_flag, e1, e2, e3, syntetic_loss);
 				send->transmit();            }
             else if (field == "binary16")
             {
                 typedef kodo::sparse_full_rlnc_encoder<fifi::binary16> rlnc_encoder;
                 auto send = new sender<rlnc_encoder>(host, port, rate, iteration, max_tx,
-                                   symbols, symbol_size, density, output, id, relayID, DestinationID, helper_flag, e1, e2, e3);
+                                   symbols, symbol_size, density, output, id, relayID, DestinationID, helper_flag, e1, e2, e3, syntetic_loss);
 				send->transmit();
             }
         }
@@ -118,17 +118,17 @@ int main(int argc, char *argv[])
             if (field == "binary")
             {
                 typedef kodo::full_rlnc_decoder<fifi::binary> rlnc_decoder;
-                receive<rlnc_decoder>(port, iteration, symbols, symbol_size, e1, e2, e3, output, id, ovear_estimate, sourceID, helperID, helper_flag);
+                receive<rlnc_decoder>(port, iteration, symbols, symbol_size, e1, e2, e3, output, id, ovear_estimate, sourceID, helperID, helper_flag, syntetic_loss);
             }
             else if (field == "binary8")
             {
                 typedef kodo::full_rlnc_decoder<fifi::binary8> rlnc_decoder;
-                receive<rlnc_decoder>(port, iteration, symbols, symbol_size, e1, e2, e3, output, id, ovear_estimate, sourceID, helperID, helper_flag);
+                receive<rlnc_decoder>(port, iteration, symbols, symbol_size, e1, e2, e3, output, id, ovear_estimate, sourceID, helperID, helper_flag, syntetic_loss);
             }
             else if (field == "binary16")
             {
                 typedef kodo::full_rlnc_decoder<fifi::binary16> rlnc_decoder;
-                receive<rlnc_decoder>(port, iteration, symbols, symbol_size, e1, e2, e3, output, id, ovear_estimate, sourceID, helperID, helper_flag);
+                receive<rlnc_decoder>(port, iteration, symbols, symbol_size, e1, e2, e3, output, id, ovear_estimate, sourceID, helperID, helper_flag, syntetic_loss);
             }
         }
         else 
@@ -136,19 +136,19 @@ int main(int argc, char *argv[])
             if (field == "binary")
             {
                 typedef kodo::full_rlnc_decoder<fifi::binary> rlnc_decoder;
-                auto r = new relay<rlnc_decoder>(host,port, rate, iteration, symbols, symbol_size, max_tx, e1, e2, e3,loss, output, id, strategy, ovear_estimate, sourceID, relayID, DestinationID, helperID, helper_flag, credit_app);
+                auto r = new relay<rlnc_decoder>(host,port, rate, iteration, symbols, symbol_size, max_tx, e1, e2, e3, syntetic_loss, output, id, strategy, ovear_estimate, sourceID, relayID, DestinationID, helperID, helper_flag, credit_app);
                 r->forward();
             }
             else if (field == "binary8")
             {
                 typedef kodo::full_rlnc_decoder<fifi::binary8> rlnc_decoder;
-                auto r = new relay<rlnc_decoder>(host,port, rate, iteration, symbols, symbol_size, max_tx, e1, e2, e3,loss, output, id, strategy, ovear_estimate, sourceID, relayID, DestinationID, helperID, helper_flag, credit_app);
+                auto r = new relay<rlnc_decoder>(host,port, rate, iteration, symbols, symbol_size, max_tx, e1, e2, e3, syntetic_loss, output, id, strategy, ovear_estimate, sourceID, relayID, DestinationID, helperID, helper_flag, credit_app);
                 r->forward();
                             }
             else if (field == "binary16")
             {
                 typedef kodo::full_rlnc_decoder<fifi::binary16> rlnc_decoder;
-                auto r = new relay<rlnc_decoder>(host,port, rate, iteration, symbols, symbol_size, max_tx, e1, e2, e3,loss, output, id, strategy, ovear_estimate, sourceID, relayID, DestinationID, helperID, helper_flag, credit_app);
+                auto r = new relay<rlnc_decoder>(host,port, rate, iteration, symbols, symbol_size, max_tx, e1, e2, e3, syntetic_loss, output, id, strategy, ovear_estimate, sourceID, relayID, DestinationID, helperID, helper_flag, credit_app);
                 r->forward();            
              }
         }

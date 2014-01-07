@@ -5,11 +5,64 @@
 #include <cstdlib>            // For atoi()
 #include <vector>
 #include <fstream>
-
+#include "link_estimator.h"
 
 #include "PracticalSocket.h"  // For UDPSocket and SocketException
 
 using namespace std;
+std::map<uint32_t , boost::shared_ptr<linkEstimator::LinkQualityEntry>> link_quality_table;
+int doublicate;
+
+
+void update_loss(int id, int seq)
+{
+	if (link_quality_table.find(id) == link_quality_table.end() )
+	{
+		boost::shared_ptr<linkEstimator::LinkQualityEntry> new_entry(new linkEstimator::LinkQualityEntry);
+		std::cout << "new Entry " <<std::endl;
+		new_entry->last = seq;
+		new_entry->first = seq;
+		new_entry->received = 1;
+		new_entry->last_refresh = 0;
+		
+		//boost::shared_ptr<LinkQualityEntry> new_entry1(&new_entry); 
+		link_quality_table[id] = new_entry;
+
+	}
+	else 
+	{
+		boost::shared_ptr<linkEstimator::LinkQualityEntry> entry = link_quality_table[id];
+		if (seq <= entry->last)
+		{
+			doublicate++;
+			return;
+		}
+		
+  
+		entry->received++;
+		entry->last = seq;
+		entry->lost_prob = (entry->last - entry->first - entry->received + 1)/(entry->last - entry->first + 1) ;
+		entry->last_refresh = 0;
+		
+	}
+}
+
+void print_loss_result()
+{
+	std::map<uint32_t , boost::shared_ptr<linkEstimator::LinkQualityEntry>>::iterator itr = link_quality_table.begin();;
+	std::cout << "result:"<< link_quality_table.size() << endl;	
+
+	while (itr != link_quality_table.end())
+	{
+		std::cout << "ID:"<< itr->first<< endl;	
+		std::cout << "loss:"<< itr->second->lost_prob<< endl;
+		std::cout << "last:"<< itr->second->last<< endl;
+		std::cout << "first:"<< itr->second->first<< endl;
+		std::cout << "received:"<< itr->second->received<< endl;
+		itr++;	
+	}
+
+}
 
 void print_result(vector<size_t> &ranks, size_t rx, size_t seq)
 {
@@ -29,7 +82,8 @@ void transmit_ack(int iteration, int id)
     int interval = 1;
     boost::chrono::milliseconds dur(interval);
     UDPSocket sock;
-	string ackAddress = "172.26.13.255";
+	string ackAddress1 = "172.26.13.255";
+	string ackAddress2 = "172.26.13.205";
 	int ackPort = 12345;
     int i = 0;
 	
@@ -41,7 +95,7 @@ void transmit_ack(int iteration, int id)
     {
 		i++;
 
-		interval = std::rand() % 5;
+		interval = std::rand() % 100;
 		boost::chrono::milliseconds dur(interval);
 
 		// Encode a packet into the payload buffer
@@ -52,7 +106,8 @@ void transmit_ack(int iteration, int id)
 		try
 		{
 		// Repeatedly send the string (not including \0) to the server
-    		sock.sendTo((char *)&payload[0], payload.size(), ackAddress , ackPort);
+    		sock.sendTo((char *)&payload[0], payload.size(), ackAddress1 , ackPort);
+    		//sock.sendTo((char *)&payload[0], payload.size(), ackAddress2 , ackPort);
 	    	boost::this_thread::sleep_for(dur);
 		}
 		catch (SocketException &e)
@@ -77,7 +132,8 @@ int receive(int destPort,
             double ovear_estimate,
             int source,
             int helperID,
-            int is_enabledd_helper)
+            int is_enabledd_helper,
+            bool syntetic_loss)
 {
     typename Decoder::pointer m_decoder;
     typename Decoder::factory m_decoder_factory(symbols, symbol_size);
@@ -109,7 +165,7 @@ int receive(int destPort,
 			sourceID = *((int *)(&recvString[bytesRcvd - 4])); //source ID
             itr = *((int *)(&recvString[bytesRcvd - 8])); //Iteration
             seq = *((int *)(&recvString[bytesRcvd - 12])); //Sequence number
-
+			
 
 			// filter the packet from the other nodes
 			if (sourceID != source && sourceID != helperID)
@@ -121,14 +177,16 @@ int receive(int destPort,
 			{
 				continue;	
 			}
+    		update_loss(sourceID, seq);
+
             std::cout << "here 2" << std::endl;
             // drop the packet because of loss
-            if (iteration != itr || (std::rand ()%100  < (e3 + ovear_estimate) && sourceID == source))
+            if (iteration != itr || (std::rand ()%100  < (e3 + ovear_estimate) && sourceID == source && syntetic_loss == true))
             {
                 continue;
             }
 
-            if (std::rand ()%100  < (e2 + ovear_estimate) && sourceID == helperID)
+            if (std::rand ()%100  < (e2 + ovear_estimate) && sourceID == helperID && syntetic_loss == true)
             {
                 continue;
             }
@@ -194,9 +252,9 @@ int receive(int destPort,
     {
         print_result(ranks, received_packets, seq);
     }
-
+	
+	print_loss_result();
     return 0;
 }
-
 
 

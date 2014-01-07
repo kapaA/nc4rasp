@@ -123,25 +123,38 @@ void timer()
 	now = boost::posix_time::microsec_clock::local_time();
 	diff = start - now;
 	boost::chrono::milliseconds dur(100);
-    boost::posix_time::time_duration threshold(100);
-    /*
-	while (diff.total_microseconds() < threshold && timer_flage ==  false )
+    boost::posix_time::microseconds threshold(1000000000);
+											  
+    
+    ofstream myfile;
+	myfile.open ("diff.txt");
+	
+	while (diff < threshold && timer_flage ==  false )
 	{
+		
 		boost::this_thread::sleep_for(dur);
 		now = boost::posix_time::microsec_clock::local_time();
-		diff = start - now;
+		diff =  now - start;
+		
+		
+		myfile << "diff.\n" << diff.total_microseconds();
+		//std::cerr << "diff " <<  diff.total_microseconds() << std::endl;
+
 	}
-	
 	if (timer_flage == false)
 	{
-		cout << "hard stop: " << diff.total_microseconds()<<endl;
+		std::cerr << "hard stop: " << diff.total_microseconds()<<endl;
 		finished = true;
+		timer_flage = true;
 		sock.close();
 		sock_ack.close();
 		condQ.notify_one();	
 
-	}*/
+	}
+	myfile.close();
+	
 }
+
 
 
 void listen_ack(int iteration)
@@ -163,12 +176,11 @@ void listen_ack(int iteration)
 			int itr = *((int *)(&recvString[bytesRcvd - 8])); //iteartion num
 
             
-            if (itr == iteration && ACKsource == destinationID)
+            if ((itr == iteration && ACKsource == destinationID) || timer_flage == true)
 			{	
-				timer_flage == true;	
+				timer_flage = true;	
 				boost::mutex::scoped_lock lock( mutexQ );
 				std::cout << "ACK is received!" << endl;
-				std::cerr << "ACK is received" << std::endl;
 
 				finished = true;
 				sock.close();
@@ -191,7 +203,7 @@ void listen_ack(int iteration)
 }
 
 
-int forward_simple()
+int forward_simple_credit_base()
 {
 	
     const int MAXRCVSTRING = 4096; // Longest string to receive
@@ -207,6 +219,14 @@ int forward_simple()
     int sourceID = 0;
 
 	receive_ack = boost::thread(&relay::listen_ack, this, iteration);		// listen to ack packets	
+	boost::thread run_time = boost::thread(&relay::timer, this);		// listen to ack packets		
+	boost::thread th = boost::thread(&relay::credit_base_helper, this);					// transmit thread	
+	cout << "start " << m_decoder->rank() << endl;
+	
+	int recevied_src = 0;
+	int recevied_rly = 0;
+	int tx_rly = 0;
+	int tx_src = 0;
 
     while (!m_decoder->is_complete())
     {
@@ -219,7 +239,9 @@ int forward_simple()
 			sourceID = *((int *)(&recvString[bytesRcvd - 4])); //source ID
             itr = *((int *)(&recvString[bytesRcvd - 8])); //Iteration
             seq = *((int *)(&recvString[bytesRcvd - 12])); //Sequence number
-			
+
+            cout << "rank:" << m_decoder->rank() << endl;
+
 			// filter the packet from the other nodes
 			if (sourceID != source && sourceID != relayID)
 			{
@@ -241,43 +263,48 @@ int forward_simple()
 				continue;
 			}
             
+            
+            if (sourceID == source)
+            {
+				recevied_src++;
+				tx_src = seq;
+            }
+
+            if (sourceID != source)
+            {
+				recevied_rly++;
+				tx_rly = seq;
+                cout << "rank_relay:" << m_decoder->rank() << endl;
+
+            }
 
             if (output == "verbose") 
             {
+               cout << "source ID:" << sourceID << endl;
                 cout << "rank:" << m_decoder->rank() << endl;
                 cout << "seq:" << seq << endl;
                 cout << "itr:" << itr << endl;
                 cout << "iteration:" << iteration << endl;
-                cout << "source ID:" << sourceID << endl;
-            }
-						
+				cout << "received_from_source:" << recevied_src << endl;
+				cout << "transmit_from_source:" << tx_src << endl;
+				cout << "received_from_relay:" << recevied_rly << endl;
+				cout << "transmit_from_relay:" << tx_rly << endl;
+			
+			 }
+            update_loss(sourceID, seq);
+									
 		    rank = m_decoder->rank();
 		    m_decoder->decode( (uint8_t*)&recvString[0] );
-		      
-			std::vector<uint8_t> payload(m_decoder->payload_size());
-			m_decoder->recode( &payload[0]);
-		    
-			payload.insert(payload.end(), (char *)&x, ((char *)&x) + 4);
-			payload.insert(payload.end(), (char *)&iteration, ((char *)&iteration) + 4);
-			payload.insert(payload.end(), (char *)&id, ((char *)&id) + 4);
-		    x++;
-		    
-			try
+		    received_packets++;
+			
+            if (rank != m_decoder->rank())
 			{
-				// Repeatedly send the string (not including \0) to the server
-				FW_sock.sendTo((char *)&payload[0], payload.size(), destAddress , destPort);
-				//boost::this_thread::sleep_for(dur);
+				boost::mutex::scoped_lock lock( mutexQ );
+				budget += credit; 
+				condQ.notify_one();
+				
 			}
-			catch (SocketException &e)
-			{
-				cerr << e.what() << endl;
-				exit(0);
-			}
-		    
-		    
-			received_packets++;
-			//cout << "received_packets: " << received_packets << endl << endl;		
-
+			
             if (rank == m_decoder->rank()) //If rank has not changed the received package is liniar dependent              
 				ranks[rank]++; //Add a linear dependent cnt to this spot
         }
@@ -292,7 +319,8 @@ int forward_simple()
 	std::cout << "start helper" << endl;
 	boost::thread t(&relay::start_helper, this, x);	
 	t.join();
-	
+	run_time.join();
+    
     if (output == "verbose")
     {
         std::cout << "ITERATION FINISHED: "<< iteration << std::endl;
@@ -303,8 +331,7 @@ int forward_simple()
     {
         print_result(ranks, received_packets, seq);
     }
-
-    return 0;
+	return 0;
 
 }            
             
@@ -552,10 +579,15 @@ int set_credit ()
 	float e1 = E1 / 100;
 	float e2 = E2 / 100;
 	float e3 = E3 / 100; 
-	if (credit_app == 1)
-		credit = (float) 1/(1 - e2);
-	else 
-		credit = (float) 1/(1 - e1);
+	
+	credit = (float) 1/(1 - e1);
+	
+	if (strategy == "relay_simple" &&  is_enabled_helper() == 1)
+		credit = (float) 1/(1 - e1*e3);	
+	
+	if (strategy == "relay_simple" &&  is_enabled_helper() == 0)
+		credit = (float) 1/(1 - e3);	
+	
 	
 	int t;
 	int d_r;
@@ -594,7 +626,7 @@ int forward()
 	else if (strategy == "hana_heuristic")
 		hana_heuristic();
 	else if (strategy == "relay_simple")
-		forward_simple();
+		forward_simple_credit_base();
 	else if (strategy == "stupid")
 		forward_helper_stupid();
 
@@ -759,8 +791,7 @@ int credit_base_playNcool()
 		t = t * (1 - e1);
 	}
 	
-	 
-	
+
 	boost::thread th;
 	int counter = -100;
 	bool flag_counter = false;
@@ -880,7 +911,7 @@ int credit_base_playNcool()
         }
 	}
 	th.join();
-	//run_time.join();
+	run_time.join();
 	//receive_ack.join();		// no need to wait
 	return 0;
 }
@@ -1015,6 +1046,57 @@ void start_helper(int x)
 		std::cout << "The relay received ACK from destination" << endl;
 	}
 	
+}
+  
+void credit_base_relay()
+{
+	
+	int x = 1;
+	UDPSocket sock;
+    int interval = 1000/(1000*rate/symbol_size);
+    boost::chrono::milliseconds dur(interval);
+    int i = 0;
+    
+	while (m_decoder->is_comeplete() == false && finished == false)
+    {
+       	boost::mutex::scoped_lock lock(mutexQ);
+       
+        while( budget <= 0 && finished == false) // while - to guard agains spurious wakeups
+        {
+            condQ.wait(lock);
+        }
+    
+		if (finished == true)
+		{
+			std::cout << "The relay received ACK from destination" << endl;
+			break;
+		}   
+				
+		budget--;
+		i++;
+		
+		// Encode a packet into the payload buffer
+		std::vector<uint8_t> payload(m_decoder->payload_size());
+		m_decoder->recode( &payload[0]);
+	
+		payload.insert(payload.end(), (char *)&x, ((char *)&x) + 4);
+		payload.insert(payload.end(), (char *)&iteration, ((char *)&iteration) + 4);
+		payload.insert(payload.end(), (char *)&id, ((char *)&id) + 4);
+		x++;
+
+		try
+		{
+			// Repeatedly send the string (not including \0) to the server
+			sock.sendTo((char *)&payload[0], payload.size(), destAddress , destPort);
+		}
+		catch (SocketException &e)
+		{
+			cerr << e.what() << endl;
+			exit(0);
+		}
+	
+    
+	}
 }
   
 void credit_base_helper()

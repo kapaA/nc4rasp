@@ -17,6 +17,7 @@ template <class Encoder> class sender {
 
 	typename Encoder::pointer m_encoder;
 	
+	bool timer_flage; 
 	bool finished;
 	boost::posix_time::ptime now; 
 	boost::posix_time::time_duration diff;
@@ -39,6 +40,8 @@ template <class Encoder> class sender {
 	double E2;
 	double E3;
 	int is_enabled_helper;
+	bool syntetic_loss;
+    UDPSocket sock_ack;
 	
 	sender(std::string destAdd,
          int destP,
@@ -55,7 +58,8 @@ template <class Encoder> class sender {
          int enabled_helper,
     	double e_s_r,
 		double e_r_d,
-		double e_s_d)
+		double e_s_d,
+		bool syn_loss)
 	{
 	is_enabled_helper = enabled_helper;
 	budget = 0;
@@ -75,23 +79,68 @@ template <class Encoder> class sender {
 	E1 = e_s_r;
 	E2 = e_r_d;
 	E3 = e_s_d;
-	}
+	syntetic_loss = syn_loss;
+	timer_flage = false;
+ 	}
+
+
+void timer()
+{
 	
+	boost::posix_time::ptime now; 
+	boost::posix_time::time_duration diff;
+	boost::posix_time::ptime start;
+	
+	start  = boost::posix_time::microsec_clock::local_time();
+	now = boost::posix_time::microsec_clock::local_time();
+	diff = start - now;
+	boost::chrono::milliseconds dur(100);
+    boost::posix_time::microseconds threshold(100000000);
+
+	ofstream myfile;
+	myfile.open ("diff.txt");    
+	while (diff < threshold && timer_flage ==  false )
+	{
+		
+		boost::this_thread::sleep_for(dur);
+		now = boost::posix_time::microsec_clock::local_time();
+		diff =  now - start;
+		std::cerr << "diff " <<  diff.total_microseconds() << std::endl;
+
+		myfile << "diff.\n" << diff.total_microseconds();
+
+
+	}
+	if (timer_flage == false)
+	{
+		std::cerr << "hard stop: " << diff.total_microseconds()<<endl;
+		finished = true;
+		timer_flage = true;
+		sock_ack.close();
+		
+		myfile << "closed socket" << diff.total_microseconds();
+
+	}
+	myfile << "finished at: .\n" << iteration;
+
+	myfile.close();
+
+}
+
 void listen_ack(int iteration, int relayID, int DestinationID )
 {
 	int ackPort = 12345;	
     const int MAXRCVSTRING = 4096; // Longest string to receive
-    UDPSocket sock(ackPort);
     char recvString[MAXRCVSTRING + 1]; // Buffer for echo string + \0
     string sourceAddress;              // Address of datagram source
     unsigned short sourcePort;         // Port of datagram source
-
+    sock_ack.setLocalPort(ackPort);
    while (true)
     {
         try
-        {
+        {	
 			
-            int bytesRcvd = sock.recvFrom(recvString, MAXRCVSTRING,
+            int bytesRcvd = sock_ack.recvFrom(recvString, MAXRCVSTRING,
                                           sourceAddress, sourcePort);
                           
 			int ACKsource = *((int *)(&recvString[bytesRcvd - 4])); //source ID
@@ -101,9 +150,11 @@ void listen_ack(int iteration, int relayID, int DestinationID )
 			{
 				std::cout << "ACK is received from relay!" << endl;
 				finished = true;
+				
 			}	
-			if (itr == iteration && ACKsource == DestinationID)
+			if ((itr == iteration && ACKsource == DestinationID) || timer_flage == true )
 			{
+				timer_flage = true;
 				now  = boost::posix_time::microsec_clock::local_time();
 				diff = now - tick;							// completion time 
 				std::cout << "ACK is received from destination!" << endl;
@@ -248,6 +299,8 @@ int transmit_simple()
 
 int transmit_credit()
 {
+    cout << "sender:" <<  endl;
+
     typename Encoder::factory m_encoder_factory(symbols, symbol_size);
     m_encoder = m_encoder_factory.build();
 
@@ -261,6 +314,7 @@ int transmit_credit()
         cout << "sender:" <<  endl;
 
 	boost::thread receive_ack = boost::thread(&sender::listen_ack, this, iteration, relayID, DestinationID);	
+	boost::thread run_timer = boost::thread(&sender::timer, this);	
     
     
     // Allocate some data to encode. In this case we make a buffer
@@ -339,6 +393,13 @@ int transmit_credit()
 	    boost::this_thread::sleep_for(dur);
     }
     receive_ack.join(); // wait to receive an ACK from destination
+    run_timer.join();
+    
+	ofstream myfile;
+	myfile.open ("example2.txt");
+	myfile << "\n Totally finshed" << iteration;
+	myfile.close();
+
     return 0;
 }
 
