@@ -38,6 +38,7 @@
 #endif
 
 #include <errno.h>             // For errno
+#include <iostream>            // cerr
 
 using namespace std;
 
@@ -106,12 +107,19 @@ Socket::Socket(int sockDesc) {
 }
 
 void Socket::close() {
-// ::close(this->sockDesc);
- std::cerr << "shutdown" << std::endl;
- ::shutdown(sockDesc, SHUT_RDWR);
- ::close(sockDesc);
- sockDesc = -1;
+
+    std::cerr << "shutdown" << std::endl;
+
+    #ifdef _WIN32
+        ::closesocket(sockDesc);
+    #else
+        ::shutdown(sockDesc, SHUT_RDWR);
+        ::close(sockDesc);
+    #endif
+
+    sockDesc = -1;
 }
+
 Socket::~Socket() {
   if (sockDesc == -1)
 	return;
