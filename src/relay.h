@@ -232,7 +232,7 @@ int forward_simple_credit_base()
     int itr = 0, rank = 0;
     vector<size_t> ranks(symbols);
     UDPSocket FW_sock;
-	int x = 1;
+    int x = 1;
     int sourceID = 0;
 
     receive_ack = boost::thread(&relay::listen_ack, this, iteration);		// listen to ack packets	
@@ -364,12 +364,12 @@ int forward_helper_stupid()
     int itr, rank;
     vector<size_t> ranks(symbols);
     UDPSocket FW_sock;
-	int x = 1;
+    int x = 1;
     int sourceID;
-	bool helper_is_started = false;
+    bool helper_is_started = false;
 
-	receive_ack = boost::thread(&relay::listen_ack, this, iteration);		// listen to ack packets
-	boost::thread t; // helper thread
+    receive_ack = boost::thread(&relay::listen_ack, this, iteration);		// listen to ack packets
+    boost::thread t; // helper thread
 
     while (!m_decoder->is_complete())
     {
@@ -472,10 +472,9 @@ int forward_helper()
     int itr, rank;
     vector<size_t> ranks(symbols);
     UDPSocket FW_sock;
-	int x = 1;
+    int x = 1;
     int sourceID;
-
-	receive_ack = boost::thread(&relay::listen_ack, this, iteration);		// listen to ack packets
+    receive_ack = boost::thread(&relay::listen_ack, this, iteration);		// listen to ack packets
 
     while (!m_decoder->is_complete())
     {
@@ -1067,13 +1066,13 @@ void start_helper(int x)
 void credit_base_relay()
 {
 	
-	int x = 1;
-	UDPSocket sock;
+    int x = 1;
+    UDPSocket sock;
     int interval = 1000/(1000*rate/symbol_size);
     boost::chrono::milliseconds dur(interval);
     int i = 0;
     
-	while (m_decoder->is_comeplete() == false && finished == false)
+    while (m_decoder->is_comeplete() == false && finished == false)
     {
        	boost::mutex::scoped_lock lock(mutexQ);
        
@@ -1118,13 +1117,13 @@ void credit_base_relay()
 void credit_base_helper()
 {
 
-	int x = 1;
-	UDPSocket sock;
+    int x = 1;
+    UDPSocket sock;
     int interval = 1000/(1000*rate/symbol_size);
     boost::chrono::milliseconds dur(interval);
     int i = 0;
 
-	while (i < max_tx && finished == false)
+    while (i < max_tx && finished == false)
     {
        	boost::mutex::scoped_lock lock(mutexQ);
 
@@ -1132,46 +1131,47 @@ void credit_base_helper()
         {
             condQ.wait(lock);
         }
-
-		if (finished == true)
-		{
-			std::cout << "The relay received ACK from destination" << endl;
-			break;
-		}
-
-		if (total_budget < 0)
-		{
-			std::cout << "The budget is finished!"<< endl;
-			break;
-		}
-
-
-		total_budget--;
-		budget--;
-		i++;
-
-		// Encode a packet into the payload buffer
-		std::vector<uint8_t> payload(m_decoder->payload_size());
-		m_decoder->recode( &payload[0]);
-
-		payload.insert(payload.end(), (char *)&x, ((char *)&x) + 4);
-		payload.insert(payload.end(), (char *)&iteration, ((char *)&iteration) + 4);
-		payload.insert(payload.end(), (char *)&id, ((char *)&id) + 4);
-		x++;
-
-		try
-		{
-			// Repeatedly send the string (not including \0) to the server
-			sock.sendTo((char *)&payload[0], payload.size(), destAddress , destPort);
-		}
-		catch (SocketException &e)
-		{
-			cerr << e.what() << endl;
-			exit(0);
-		}
-
-
+		
+	
+	if (finished == true)
+	{
+		std::cout << "The relay received ACK from destination" << endl;
+		break;
 	}
+
+	if (total_budget < 0)
+	{
+		std::cout << "The budget is finished!"<< endl;
+		break;
+	}
+
+
+	total_budget--;
+	budget--;
+	i++;
+
+	// Encode a packet into the payload buffer
+	std::vector<uint8_t> payload(m_decoder->payload_size());
+	m_decoder->recode( &payload[0]);
+
+	payload.insert(payload.end(), (char *)&x, ((char *)&x) + 4);
+	payload.insert(payload.end(), (char *)&iteration, ((char *)&iteration) + 4);
+	payload.insert(payload.end(), (char *)&id, ((char *)&id) + 4);
+	x++;
+
+	try
+	{
+		// Repeatedly send the string (not including \0) to the server
+		sock.sendTo((char *)&payload[0], payload.size(), destAddress , destPort);
+	}
+	catch (SocketException &e)
+	{
+		cerr << e.what() << endl;
+		exit(0);
+	}
+
+
+   }
 
 	print_loss_result();
 }
