@@ -58,15 +58,15 @@ template <class Decoder> class relay {
 	int doublicate;
 
  relay(std::string dest,
-			int destP,
+	    int destP,
             int r,
             int it,
             int sym,
             int sym_size,
             int m_tx,
-			double e_s_r,
-			double e_r_d,
-			double e_s_d,
+	    double e_s_r,
+	    double e_r_d,
+	    double e_s_d,
             bool l,
             std::string out,
             int identification,
@@ -102,7 +102,7 @@ template <class Decoder> class relay {
 	helper_avaliable = is_enabled;
 	budget = 0;
 	ackPort = 12345;
-    sock_ack.setLocalPort(ackPort);
+        sock_ack.setLocalPort(ackPort);
 	credit_app = crd_app;
 	timer_flage = false;
 }
@@ -235,39 +235,38 @@ int forward_simple_credit_base()
 	int x = 1;
     int sourceID = 0;
 
-	receive_ack = boost::thread(&relay::listen_ack, this, iteration);		// listen to ack packets	
-	boost::thread run_time = boost::thread(&relay::timer, this);		// listen to ack packets		
-	boost::thread th = boost::thread(&relay::credit_base_helper, this);					// transmit thread	
-	cout << "start " << m_decoder->rank() << endl;
-	
-	int recevied_src = 0;
-	int recevied_rly = 0;
-	int tx_rly = 0;
-	int tx_src = 0;
+    receive_ack = boost::thread(&relay::listen_ack, this, iteration);		// listen to ack packets	
+    boost::thread run_time = boost::thread(&relay::timer, this);		// listen to ack packets		
+    boost::thread th = boost::thread(&relay::credit_base_helper, this);					// transmit thread	
+
+    int recevied_src = 0;
+    int recevied_rly = 0;
+    int tx_rly = 0;
+    int tx_src = 0;
 
     while (!m_decoder->is_complete())
     {
         try
         {
 
-			int bytesRcvd = sock.recvFrom(recvString, MAXRCVSTRING,
+	    int bytesRcvd = sock.recvFrom(recvString, MAXRCVSTRING,
                                           sourceAddress, sourcePort);
 
-			sourceID = *((int *)(&recvString[bytesRcvd - 4])); //source ID
+	    sourceID = *((int *)(&recvString[bytesRcvd - 4])); //source ID
             itr = *((int *)(&recvString[bytesRcvd - 8])); //Iteration
             seq = *((int *)(&recvString[bytesRcvd - 12])); //Sequence number
 
             cout << "rank:" << m_decoder->rank() << endl;
 
 			// filter the packet from the other nodes
-			if (sourceID != source && sourceID != relayID)
-			{
-				continue;
-			}
-			if (sourceID == helperID && is_enabled_helper () == 0)
-			{
-				continue;
-			}
+	    if (sourceID != source && sourceID != relayID)
+            {
+		continue;
+	    }
+	    if (sourceID == helperID && is_enabled_helper () == 0)
+	     {
+	 	continue;
+	     }
 
             // drop the packet because of the loss
             if (iteration != itr || (std::rand ()%100 < (E3 + ovear_estimate) && sourceID == source && syntetic_loss == true))
@@ -277,20 +276,20 @@ int forward_simple_credit_base()
 
             if (iteration != itr || (std::rand ()%100 < (E2 + ovear_estimate) && sourceID == relayID && syntetic_loss == true))
             {
-				continue;
-			}
+		continue;
+	    }
             
             
             if (sourceID == source)
             {
-				recevied_src++;
-				tx_src = seq;
+		recevied_src++;
+		tx_src = seq;
             }
 
             if (sourceID != source)
             {
-				recevied_rly++;
-				tx_rly = seq;
+		recevied_rly++;
+		tx_rly = seq;
                 cout << "rank_relay:" << m_decoder->rank() << endl;
 
             }
@@ -298,33 +297,33 @@ int forward_simple_credit_base()
 
             if (output == "verbose")
             {
-               cout << "source ID:" << sourceID << endl;
+                cout << "source ID:" << sourceID << endl;
                 cout << "rank:" << m_decoder->rank() << endl;
                 cout << "seq:" << seq << endl;
                 cout << "itr:" << itr << endl;
                 cout << "iteration:" << iteration << endl;
-				cout << "received_from_source:" << recevied_src << endl;
-				cout << "transmit_from_source:" << tx_src << endl;
-				cout << "received_from_relay:" << recevied_rly << endl;
-				cout << "transmit_from_relay:" << tx_rly << endl;
+		cout << "received_from_source:" << recevied_src << endl;
+		cout << "transmit_from_source:" << tx_src << endl;
+		cout << "received_from_relay:" << recevied_rly << endl;
+		cout << "transmit_from_relay:" << tx_rly << endl;
 			
-			 }
+	     }
             update_loss(sourceID, seq);
 									
-		    rank = m_decoder->rank();
-		    m_decoder->decode( (uint8_t*)&recvString[0] );
-		    received_packets++;
+	    rank = m_decoder->rank();
+	    m_decoder->decode( (uint8_t*)&recvString[0] );
+	    received_packets++;
 			
             if (rank != m_decoder->rank())
-			{
-				boost::mutex::scoped_lock lock( mutexQ );
-				budget += credit; 
-				condQ.notify_one();
-				
-			}
+	    {
+		boost::mutex::scoped_lock lock( mutexQ );
+		budget += credit; 
+		condQ.notify_one();
 			
+	    }
+		
             if (rank == m_decoder->rank()) //If rank has not changed the received package is liniar dependent              
-				ranks[rank]++; //Add a linear dependent cnt to this spot
+		ranks[rank]++; //Add a linear dependent cnt to this spot
         }
         catch (SocketException &e)
         {
@@ -633,7 +632,7 @@ int forward()
 {
 
 	typename Decoder::factory m_decoder_factory(symbols, symbol_size);
-    m_decoder = m_decoder_factory.build();
+         m_decoder = m_decoder_factory.build();
 
 	if (strategy == "simple")
 		forward_helper();
