@@ -206,12 +206,14 @@ int set_credit_simple()
 }
 int transmit ()
 {
-	if (is_enabled_helper == 1)
+	/*if (is_enabled_helper == 1)
 		set_credit_helper();
 	else 
 		set_credit_simple();
+	*/
+	//transmit_credit();
+	transmit_simple();
 	
-	transmit_credit();
 }
 
 int transmit_simple()

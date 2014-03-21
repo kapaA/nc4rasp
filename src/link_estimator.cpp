@@ -28,7 +28,6 @@ void linkEstimator::send_hello()
 
     int interval = 1/(rate);
     boost::chrono::milliseconds dur(interval);
-	std::cout << "send"<<  endl;
 
 	boost::thread rx = boost::thread(&linkEstimator::receive_hello, this);
 

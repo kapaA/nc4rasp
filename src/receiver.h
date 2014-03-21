@@ -179,7 +179,6 @@ int receive(int destPort,
 			}
     		update_loss(sourceID, seq);
 
-            std::cout << "here 2" << std::endl;
             // drop the packet because of loss
             if (iteration != itr || (std::rand ()%100  < (e3 + ovear_estimate) && sourceID == source && syntetic_loss == true))
             {
@@ -197,13 +196,16 @@ int receive(int destPort,
             if (sourceID == source)
             {
 				recevied_src++;
-				tx_src = seq;
+				tx_src = seq;				
+				cout << "seq_source:" << seq << endl;
+
             }
 
             if (sourceID != source)
             {
 				recevied_rly++;
 				tx_rly = seq;
+				cout << "seq_relay:" << seq << endl;
                 cout << "rank_relay:" << m_decoder->rank() << endl;
 
             }

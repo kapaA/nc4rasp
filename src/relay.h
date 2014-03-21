@@ -808,7 +808,7 @@ int credit_base_playNcool()
 	    std::cout << "thershold: " << t << std::endl;
 		t = t * (1 - e1);
 	}
-	t = t + 5;
+
 	boost::thread th;
 	int counter = -100;
 	bool flag_counter = false;
