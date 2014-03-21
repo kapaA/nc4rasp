@@ -162,7 +162,6 @@ void listen_ack(int iteration, int relayID, int DestinationID )
 		std::cout << "ACK is received from destination!" << endl;
 		std::cout << "completion_time:" << diff.total_microseconds()<<endl;
 		finished = true;
-
 		ofstream myfile;
 		myfile.open ("example2.txt");
 		myfile << "Finished.\n" << iteration;
