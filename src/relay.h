@@ -123,11 +123,10 @@ void timer()
 	now = boost::posix_time::microsec_clock::local_time();
 	diff = start - now;
 	boost::chrono::milliseconds dur(100);
-
-    boost::posix_time::microseconds threshold(100000000);
+        boost::posix_time::microseconds threshold(100000000);
 											  
     
-    ofstream myfile;
+        ofstream myfile;
 	myfile.open ("diff.txt");
 	/*
 	while (diff < threshold && timer_flage ==  false )
@@ -160,7 +159,6 @@ void timer()
 		finished = true;
 		timer_flage = true;
 		sock_ack.close();
-		
 		myfile << "closed socket" << diff.total_microseconds();
 
 	}
@@ -181,7 +179,7 @@ void listen_ack(int iteration)
     string sourceAddress;              // Address of datagram source
     unsigned short sourcePort;         // Port of datagram source
 
-   while (true)
+    while (true)
     {
         try
         {
@@ -189,25 +187,25 @@ void listen_ack(int iteration)
             int bytesRcvd = sock_ack.recvFrom(recvString, MAXRCVSTRING,
                                           sourceAddress, sourcePort);
 
-			int ACKsource = *((int *)(&recvString[bytesRcvd - 4])); //source ID
-			int itr = *((int *)(&recvString[bytesRcvd - 8])); //iteartion num
+	    int ACKsource = *((int *)(&recvString[bytesRcvd - 4])); //source ID
+	    int itr = *((int *)(&recvString[bytesRcvd - 8])); //iteartion num
 
             
             if ((itr == iteration && ACKsource == destinationID) || timer_flage == true)
-			{	
-				timer_flage = true;	
-				boost::mutex::scoped_lock lock( mutexQ );
-				std::cout << "ACK is received!" << endl;
+		{	
+			timer_flage = true;	
+			boost::mutex::scoped_lock lock( mutexQ );
+			std::cout << "ACK is received!" << endl;
 
-				finished = true;
-				sock.close();
-				ofstream myfile;
-				myfile.open ("example.txt");
-				myfile << "ACK is received!.\n" << iteration;
-				myfile.close();
-				condQ.notify_one();
-				break;
-			}
+			finished = true;
+			sock.close();
+			ofstream myfile;
+			myfile.open ("example.txt");
+			myfile << "ACK is received!.\n" << iteration;
+			myfile.close();
+			condQ.notify_one();
+			break;
+		}
 
          }
         catch (SocketException &e)
@@ -459,7 +457,8 @@ int forward_helper_stupid()
 
 }
 
-
+/// This approach transmits a packet when it receives a packet from the source
+// similar to recode and forward approach
 int forward_helper()
 {
 
@@ -496,9 +495,8 @@ int forward_helper()
                                           sourceAddress, sourcePort);
 
 			sourceID = *((int *)(&recvString[bytesRcvd - 4])); //source ID
-            itr = *((int *)(&recvString[bytesRcvd - 8])); //Iteration
-
-            seq = *((int *)(&recvString[bytesRcvd - 12])); //Sequence number
+           		itr = *((int *)(&recvString[bytesRcvd - 8])); //Iteration
+		        seq = *((int *)(&recvString[bytesRcvd - 12])); //Sequence number
 
 			if (finished == true)
 			{
@@ -511,30 +509,28 @@ int forward_helper()
 				break;
 			}
 
-
 			// filter the packet from the other nodes
 			if (sourceID != source)
 			{
 				continue;
 			}
 
-            if (iteration != itr || std::rand ()%100 < (E1 + ovear_estimate))
-            {
-                continue;
-            }
+	 		if (iteration != itr || std::rand ()%100 < (E1 + ovear_estimate))
+           		 {
+               			continue;
+           		 }
 
+		   	 rank = m_decoder->rank();
+		   	 m_decoder->decode( (uint8_t*)&recvString[0] );
 
-		    rank = m_decoder->rank();
-		    m_decoder->decode( (uint8_t*)&recvString[0] );
-
-		    if (output == "verbose")
-            {
-                cout << "rank:" << m_decoder->rank() << endl;
-                cout << "seq:" << seq << endl;
-                cout << "itr:" << itr << endl;
-                cout << "iteration:" << iteration << endl;
-                cout << "source ID:" << sourceID << endl;
-            }
+		 	if (output == "verbose")
+           		 {
+              		  cout << "rank:" << m_decoder->rank() << endl;
+               		  cout << "seq:" << seq << endl;
+              		  cout << "itr:" << itr << endl;
+               		  cout << "iteration:" << iteration << endl;
+              		  cout << "source ID:" << sourceID << endl;
+           		 }
 
 			std::vector<uint8_t> payload(m_decoder->payload_size());
 			m_decoder->recode( &payload[0]);
@@ -542,12 +538,12 @@ int forward_helper()
 			payload.insert(payload.end(), (char *)&x, ((char *)&x) + 4);
 			payload.insert(payload.end(), (char *)&iteration, ((char *)&iteration) + 4);
 			payload.insert(payload.end(), (char *)&id, ((char *)&id) + 4);
-		    x++;
+		   	x++;
 
 			try
 			{
 				// Repeatedly send the string (not including \0) to the server
-				FW_sock.sendTo((char *)&payload[0], payload.size(), destAddress , destPort);
+			 FW_sock.sendTo((char *)&payload[0], payload.size(), destAddress , destPort);
 
 				//boost::this_thread::sleep_for(dur);
 			}
@@ -561,8 +557,8 @@ int forward_helper()
 			received_packets++;
 			//cout << "received_packets: " << received_packets << endl << endl;
 
-            if (rank == m_decoder->rank()) //If rank has not changed the received package is liniar dependent
-				ranks[rank]++; //Add a linear dependent cnt to this spot
+          	        if (rank == m_decoder->rank()) //If rank has not changed the received package is liniar dependent
+			  	ranks[rank]++; //Add a linear dependent cnt to this spot
         }
         catch (SocketException &e)
         {
@@ -1184,8 +1180,8 @@ void transmit_ack(int iteration, int id)
     int interval = 1000/(1000*100/100);
     boost::chrono::milliseconds dur(interval);
     UDPSocket sock;
-	string ackAddress = "10.0.0.255";
-	int ackPort = 12345;
+    string ackAddress = "10.0.0.255";
+    int ackPort = 12345;
     int i = 0;
 
     while (i < 5)

@@ -38,7 +38,6 @@ void update_loss(int id, int seq)
 			return;
 		}
 		
-  
 		entry->received++;
 		entry->last = seq;
 		entry->lost_prob = (entry->last - entry->first - entry->received + 1)/(entry->last - entry->first + 1) ;
@@ -82,40 +81,43 @@ void transmit_ack(int iteration, int id)
     int interval = 1;
     boost::chrono::milliseconds dur(interval);
     UDPSocket sock;
-	string ackAddress1 = "172.26.13.255";
-	string ackAddress2 = "172.26.13.205";
-	int ackPort = 12345;
+    string ackAddress1 = "172.26.13.255";
+    string ackAddress2 = "172.26.13.205";
+    int ackPort = 12345;
     int i = 0;
 	
-	ofstream myfile;
-	myfile.open ("example2.txt");
-	myfile << "Finished.\n" << iteration;
-	myfile.close();
-	while (i < 50)
+    ofstream myfile;
+    myfile.open ("example2.txt");
+    myfile << "Finished.\n" << iteration;
+    myfile.close();
+
+    while (i < 50)
     {
-		i++;
+	
+	i++;
 
-		interval = std::rand() % 100;
-		boost::chrono::milliseconds dur(interval);
+	interval = std::rand() % 100;
+	boost::chrono::milliseconds dur(interval);
 
-		// Encode a packet into the payload buffer
-		std::vector<uint8_t> payload(2);
-		payload.insert(payload.end(), (char *)&iteration, ((char *)&iteration) + 4);
-		payload.insert(payload.end(), (char *)&id, ((char *)&id) + 4);
+	// Encode a packet into the payload buffer
+	std::vector<uint8_t> payload(2);
+	payload.insert(payload.end(), (char *)&iteration, ((char *)&iteration) + 4);
+	payload.insert(payload.end(), (char *)&id, ((char *)&id) + 4);
 
-		try
-		{
-		// Repeatedly send the string (not including \0) to the server
-    		sock.sendTo((char *)&payload[0], payload.size(), ackAddress1 , ackPort);
-    		//sock.sendTo((char *)&payload[0], payload.size(), ackAddress2 , ackPort);
-	    	boost::this_thread::sleep_for(dur);
-		}
-		catch (SocketException &e)
-		{
-		    cerr << e.what() << endl;
-			exit(0);
-		}
+	try
+	{
+	// Repeatedly send the string (not including \0) to the server
+	sock.sendTo((char *)&payload[0], payload.size(), ackAddress1 , ackPort);
+	//sock.sendTo((char *)&payload[0], payload.size(), ackAddress2 , ackPort);
+	boost::this_thread::sleep_for(dur);
 	}
+	catch (SocketException &e)
+	{
+	    cerr << e.what() << endl;
+		exit(0);
+	}
+    }
+
 }
 
 
@@ -124,16 +126,18 @@ int receive(int destPort,
             int iteration,
             int symbols,
             int symbol_size,
-			double e1,
-			double e2,
-			double e3,
-			string &output,
+	    double e1,
+	    double e2,
+	    double e3,
+	    string &output,
             int id,
             double ovear_estimate,
             int source,
             int helperID,
             int is_enabledd_helper,
-            bool syntetic_loss)
+            bool syntetic_loss,
+	    vector<int> relay_list,
+	    bool multiple_relays)
 {
     typename Decoder::pointer m_decoder;
     typename Decoder::factory m_decoder_factory(symbols, symbol_size);
@@ -149,11 +153,11 @@ int receive(int destPort,
     unsigned short sourcePort;         // Port of datagram source
     int itr = 0, rank = 0;
     vector<size_t> ranks(symbols);
-	int sourceID;
-	int recevied_src = 0;
-	int recevied_rly = 0;
-	int tx_rly = 0;
-	int tx_src = 0;
+    int sourceID;
+    int recevied_src = 0;
+    int recevied_rly = 0;
+    int tx_rly = 0;
+    int tx_src = 0;
 
     while (!m_decoder->is_complete())
     {
@@ -162,22 +166,36 @@ int receive(int destPort,
             int bytesRcvd = sock.recvFrom(recvString, MAXRCVSTRING,
                                           sourceAddress, sourcePort);
                                           
-			sourceID = *((int *)(&recvString[bytesRcvd - 4])); //source ID
+	    sourceID = *((int *)(&recvString[bytesRcvd - 4])); //source ID
             itr = *((int *)(&recvString[bytesRcvd - 8])); //Iteration
             seq = *((int *)(&recvString[bytesRcvd - 12])); //Sequence number
-			
+				
 
-			// filter the packet from the other nodes
-			if (sourceID != source && sourceID != helperID)
-			{
-				continue;
-			}
+	// filter the packet from the other nodes
+	
 
-			if (sourceID == helperID && is_enabledd_helper == 0)
-			{
-				continue;	
-			}
-    		update_loss(sourceID, seq);
+	    if (sourceID != source && sourceID != helperID && multiple_relays == false)
+	    {
+		continue;
+	    }
+	    if (sourceID == helperID && is_enabledd_helper == 0 && multiple_relays == false)
+	     {
+		continue;	
+	     }
+	   
+	    if (multiple_relays == true)
+	     {
+		bool flag = false;
+	
+		for( std::vector<int>::const_iterator i = relay_list.begin(); i != relay_list.end(); ++i)
+    		   if (sourceID == *i)
+			   flag = true;
+		
+		if (flag == false)
+			continue;	
+	     }
+
+	    update_loss(sourceID, seq);
 
             // drop the packet because of loss
             if (iteration != itr || (std::rand ()%100  < (e3 + ovear_estimate) && sourceID == source && syntetic_loss == true))
@@ -190,47 +208,49 @@ int receive(int destPort,
                 continue;
             }
 
-		    rank = m_decoder->rank();
-		    m_decoder->decode( (uint8_t*)&recvString[0] );
+	    rank = m_decoder->rank();
+	    m_decoder->decode( (uint8_t*)&recvString[0] );
 
             if (sourceID == source)
             {
-				recevied_src++;
-				tx_src = seq;				
-				cout << "seq_source:" << seq << endl;
+		recevied_src++;
+		tx_src = seq;				
+		cout << "seq_source:" << seq << endl;
 
             }
 
             if (sourceID != source)
             {
-				recevied_rly++;
-				tx_rly = seq;
-				cout << "seq_relay:" << seq << endl;
+		recevied_rly++;
+		tx_rly = seq;
+		cout << "seq_relay:" << seq << endl;
                 cout << "rank_relay:" << m_decoder->rank() << endl;
 
             }
 
-            if (output == "verbose" ) {
+            if (output == "verbose" ) 
+	    {
                 cout << "source ID:" << sourceID << endl;
                 cout << "rank:" << m_decoder->rank() << endl;
                 cout << "seq:" << seq << endl;
                 cout << "itr:" << itr << endl;
                 cout << "iteration:" << iteration << endl;
                 cout << "e3:" << e3 << endl;
-				cout << "received_from_source:" << recevied_src << endl;
-				cout << "transmit_from_source:" << tx_src << endl;
-				cout << "received_from_relay:" << recevied_rly << endl;
-				cout << "transmit_from_relay:" << tx_rly << endl;
-				ofstream myfile;
-				myfile.open ("rank.txt");
-				myfile << "rank.\n" << rank;
-				myfile.close();
+			
+		cout << "received_from_source:" << recevied_src << endl;
+		cout << "transmit_from_source:" << tx_src << endl;
+		cout << "received_from_relay:" << recevied_rly << endl;
+		cout << "transmit_from_relay:" << tx_rly << endl;
+		ofstream myfile;
+		myfile.open ("rank.txt");
+		myfile << "rank.\n" << rank;
+		myfile.close();
 
             }
 			
-			received_packets++;
+            received_packets++;
             if (rank == m_decoder->rank())  //If rank has not changed the received package is liniar dependent              
-				ranks[rank]++; 				//Add a linear dependent cnt to this spot
+		ranks[rank]++; 				//Add a linear dependent cnt to this spot
         }
         catch (SocketException &e)
         {
