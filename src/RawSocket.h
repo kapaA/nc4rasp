@@ -3,6 +3,8 @@
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <net/if.h>
+#include <linux/filter.h>
+#include <netpacket/packet.h>
 #include <linux/if_ether.h>
 #include <netinet/in.h>
 #include <netinet/udp.h>
@@ -16,69 +18,108 @@
 
 class RawSocket
 {
-public:	
-    RawSocket(std::string interface)
-        : m_interface(interface),
-          m_src(0),
-	  m_dst(0),
-	  m_port(0)
-
-    {
-        open_socket();
-        set_promisc(true);
-        bind_interface();
-    }
-
     std::string m_interface;
-    int m_sock;
-    uint32_t m_src ;
+    int m_sock, m_if_index;
+    uint32_t m_src;
     uint32_t m_dst;
-    uint16_t m_port ;
+    uint16_t m_port;
+    struct ethhdr *m_mac;
     struct iphdr *m_ip;
     struct udphdr *m_udp;
     uint8_t *m_data;
+    public :
+    RawSocket()
+        : m_src(0),
+	      m_dst(0),
+	      m_port(0)
 
+    {
+
+    }
+
+    void start(std::string interface)
+    {
+	    
+        m_interface = interface;
+        open_socket();
+        get_index();
+        set_promisc(true);
+        filter_udp();
+        bind_interface();
+	
+    }
     void open_socket()
     {
-        if ((m_sock = socket(AF_INET, SOCK_RAW, IPPROTO_UDP)) < 0)
+        if ((m_sock = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) < 0)
             throw std::system_error(errno, std::system_category(),
                                     "unable to open socket");
+   }
+
+    void get_index()
+    {
+        struct ifreq ifr = {0};
+
+        strncpy(ifr.ifr_name, m_interface.c_str(), IFNAMSIZ);
+
+        if (ioctl(m_sock, SIOCGIFINDEX, &ifr) != 0)
+            throw std::system_error(errno, std::system_category(),
+                                    "unable to get interface index");
+
+        m_if_index = ifr.ifr_ifindex;
     }
 
     void set_promisc(bool enable)
     {
-        struct ifreq ifr = {0};
+        struct packet_mreq mreq = {0};
+        int action;
 
-        strncpy(ifr.ifr_name, m_interface.c_str(), IFNAMSIZ);
-
-        if (ioctl(m_sock, SIOCGIFFLAGS, &ifr) < 0)
-            throw std::system_error(errno, std::system_category(),
-                                    "unable to get interface flags");
+        mreq.mr_ifindex = m_if_index;
+        mreq.mr_type = PACKET_MR_PROMISC;
 
         if (enable)
-            ifr.ifr_flags |= IFF_PROMISC;
+            action = PACKET_ADD_MEMBERSHIP;
         else
-            ifr.ifr_flags &= ~IFF_PROMISC;
+            action = PACKET_DROP_MEMBERSHIP;
 
-        if (ioctl(m_sock, SIOCSIFFLAGS, &ifr) < 0)
+        if (setsockopt(m_sock, SOL_PACKET, action, &mreq, sizeof(mreq)) != 0)
             throw std::system_error(errno, std::system_category(),
-                                    "unable to set interface flags");
+                                    "unable to set interface promisc");
+    }
+
+    void filter_udp()
+    {
+        struct sock_fprog prog;
+        struct sock_filter filter[] = {
+            { BPF_LD + BPF_H + BPF_ABS,  0, 0,     12 },
+            { BPF_JMP + BPF_JEQ + BPF_K, 0, 1,  0x800 },
+            { BPF_LD + BPF_B + BPF_ABS,  0, 0,     23 },
+            { BPF_JMP + BPF_JEQ + BPF_K, 0, 1,   0x11 },
+            { BPF_RET + BPF_K,           0, 0, 0xffff },
+            { BPF_RET + BPF_K,           0, 0, 0x0000 },
+        };
+
+        prog.len = sizeof(filter)/sizeof(filter[0]);
+        prog.filter = filter;
+
+        if (setsockopt(m_sock, SOL_SOCKET, SO_ATTACH_FILTER, &prog, sizeof(prog)) != 0)
+            throw std::system_error(errno, std::system_category(),
+                                    "unable to attach filter");
     }
 
     void bind_interface()
     {
-        struct ifreq ifr = {0};
+        struct sockaddr_ll sa = {0};
 
-        strncpy(ifr.ifr_name, m_interface.c_str(), IFNAMSIZ);
+        sa.sll_family = AF_PACKET;
+        sa.sll_ifindex = m_if_index;
+        sa.sll_protocol = htons(ETH_P_ALL);
 
-        if (setsockopt(m_sock, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof(ifr)) < 0)
+        if (bind(m_sock, reinterpret_cast<struct sockaddr *>(&sa), sizeof(sa)) < 0)
             throw std::system_error(errno, std::system_category(),
                                     "unable to bind to interface");
     }
 
   public:
-
-
     ~RawSocket()
     {
         set_promisc(false);
@@ -121,8 +162,7 @@ public:
 
     int recvFrom(uint8_t *buf, size_t len, std::string &src, uint16_t &port)
     {
-        printf("receive 1 ");
-	return recvFrom(reinterpret_cast<char *>(buf), len, src, port);
+        return recvFrom(reinterpret_cast<char *>(buf), len, src, port);
     }
 
     int recvFrom(char *buf, size_t len, std::string &src, uint16_t &port)
@@ -133,7 +173,6 @@ public:
         while (true)
         {
             res = recvfrom(m_sock, buf, len, 0, NULL, 0);
-	    printf("receive");
 
             if (res < 0 && errno == EINTR)
                 return -1;
@@ -145,9 +184,10 @@ public:
             if (res < sizeof(*m_ip) + sizeof(*m_udp))
                 continue;
 
-            m_ip = reinterpret_cast<struct iphdr *>(buf);
-            m_udp = reinterpret_cast<struct udphdr *>(buf + sizeof(*m_ip));
-            m_data = reinterpret_cast<uint8_t *>(buf) + sizeof(*m_ip) + sizeof(*m_udp);
+            m_mac = reinterpret_cast<struct ethhdr *>(buf);
+            m_ip = reinterpret_cast<struct iphdr *>(buf + sizeof(*m_mac));
+            m_udp = reinterpret_cast<struct udphdr *>(buf + sizeof(*m_mac) + sizeof(*m_ip));
+            m_data = reinterpret_cast<uint8_t *>(buf) + sizeof(*m_mac) + sizeof(*m_ip) + sizeof(*m_udp);
 
             if (m_src && m_src != m_ip->saddr)
                 continue;
@@ -170,7 +210,7 @@ public:
 
     static size_t hdrLen()
     {
-        return sizeof(*m_ip) + sizeof(*m_udp);
+        return sizeof(*m_mac) + sizeof(*m_ip) + sizeof(*m_udp);
     }
 
     uint8_t *data()

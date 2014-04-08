@@ -1,5 +1,5 @@
 #pragma once
-
+#include "RawSocket.h"
 #include <cstdint>
 #include <iostream>           // For cout and cerr
 #include <cstdlib>            // For atoi()
@@ -11,6 +11,8 @@
 #include <boost/thread/mutex.hpp>
 #include <boost/bind.hpp>
 #include "link_estimator.h"
+
+
 
 using namespace std;
 
@@ -40,6 +42,7 @@ template <class Decoder> class relay {
 
 	boost::thread receive_ack;
 	UDPSocket sock;
+	RawSocket prom_sock;
 	UDPSocket sock_ack;
 	int ackPort;
 	int source;
@@ -48,7 +51,7 @@ template <class Decoder> class relay {
 	int helper_avaliable;
 	int destinationID;
 	int credit_app;
-
+	bool prom;
 	double credit;
 	double budget;
 	int total_budget;
@@ -56,17 +59,17 @@ template <class Decoder> class relay {
 	boost::condition_variable_any condQ;
  	std::map<uint32_t , boost::shared_ptr<linkEstimator::LinkQualityEntry>> link_quality_table;
 	int doublicate;
-
- relay(std::string dest,
-	    int destP,
+    
+relay(std::string dest,
+	        int destP,
             int r,
             int it,
             int sym,
             int sym_size,
             int m_tx,
-	    double e_s_r,
-	    double e_r_d,
-	    double e_s_d,
+    	    double e_s_r,
+	        double e_r_d,
+	        double e_s_d,
             bool l,
             std::string out,
             int identification,
@@ -77,7 +80,8 @@ template <class Decoder> class relay {
             int desID,
             int helperID,
             int is_enabled,
-            int crd_app)
+            int crd_app,
+	        bool promiscuous)
 {
 	ovear_estimate = estimate;
 	destAddress = dest;
@@ -105,12 +109,17 @@ template <class Decoder> class relay {
         sock_ack.setLocalPort(ackPort);
 	credit_app = crd_app;
 	timer_flage = false;
+	prom = promiscuous;
+//	prom_sock.start("wlan0");
+       //RawSocket raw("wlan0");
 }
 
 int is_enabled_helper()
 {
 	return helper_avaliable;
 }
+
+
 
 void timer()
 {
@@ -123,7 +132,7 @@ void timer()
 	now = boost::posix_time::microsec_clock::local_time();
 	diff = start - now;
 	boost::chrono::milliseconds dur(100);
-        boost::posix_time::microseconds threshold(100000000);
+    boost::posix_time::microseconds threshold(100000000);
 											  
     
         ofstream myfile;
@@ -247,24 +256,24 @@ int forward_simple_credit_base()
         try
         {
 
-	    int bytesRcvd = sock.recvFrom(recvString, MAXRCVSTRING,
+	        int bytesRcvd = sock.recvFrom(recvString, MAXRCVSTRING,
                                           sourceAddress, sourcePort);
 
-	    sourceID = *((int *)(&recvString[bytesRcvd - 4])); //source ID
+	        sourceID = *((int *)(&recvString[bytesRcvd - 4])); //source ID
             itr = *((int *)(&recvString[bytesRcvd - 8])); //Iteration
             seq = *((int *)(&recvString[bytesRcvd - 12])); //Sequence number
 
             cout << "rank:" << m_decoder->rank() << endl;
 
 			// filter the packet from the other nodes
-	    if (sourceID != source && sourceID != relayID)
+	        if (sourceID != source && sourceID != relayID)
             {
-		continue;
-	    }
-	    if (sourceID == helperID && is_enabled_helper () == 0)
-	     {
-	 	continue;
-	     }
+	    	    continue;
+	        }
+	        if (sourceID == helperID && is_enabled_helper () == 0)
+	        {
+	    	    continue;
+	        }
 
             // drop the packet because of the loss
             if (iteration != itr || (std::rand ()%100 < (E3 + ovear_estimate) && sourceID == source && syntetic_loss == true))
@@ -274,20 +283,20 @@ int forward_simple_credit_base()
 
             if (iteration != itr || (std::rand ()%100 < (E2 + ovear_estimate) && sourceID == relayID && syntetic_loss == true))
             {
-		continue;
-	    }
+	        	continue;
+	         }
             
             
             if (sourceID == source)
             {
-		recevied_src++;
-		tx_src = seq;
+	        	recevied_src++;
+	        	tx_src = seq;
             }
 
             if (sourceID != source)
             {
-		recevied_rly++;
-		tx_rly = seq;
+	        	recevied_rly++;
+	        	tx_rly = seq;
                 cout << "rank_relay:" << m_decoder->rank() << endl;
 
             }
@@ -300,34 +309,33 @@ int forward_simple_credit_base()
                 cout << "seq:" << seq << endl;
                 cout << "itr:" << itr << endl;
                 cout << "iteration:" << iteration << endl;
-		cout << "received_from_source:" << recevied_src << endl;
-		cout << "transmit_from_source:" << tx_src << endl;
-		cout << "received_from_relay:" << recevied_rly << endl;
-		cout << "transmit_from_relay:" << tx_rly << endl;
+	        	cout << "received_from_source:" << recevied_src << endl;
+		        cout << "transmit_from_source:" << tx_src << endl;
+		        cout << "received_from_relay:" << recevied_rly << endl;
+		        cout << "transmit_from_relay:" << tx_rly << endl;
 			
 	     }
-            update_loss(sourceID, seq);
-									
+        update_loss(sourceID, seq);
 	    rank = m_decoder->rank();
 	    m_decoder->decode( (uint8_t*)&recvString[0] );
 	    received_packets++;
 			
-            if (rank != m_decoder->rank())
+        if (rank != m_decoder->rank())
 	    {
-		boost::mutex::scoped_lock lock( mutexQ );
-		budget += credit; 
-		condQ.notify_one();
+	    	boost::mutex::scoped_lock lock( mutexQ );
+		    budget += credit; 
+		    condQ.notify_one();
 			
 	    }
 		
-            if (rank == m_decoder->rank()) //If rank has not changed the received package is liniar dependent              
-		ranks[rank]++; //Add a linear dependent cnt to this spot
+        if (rank == m_decoder->rank()) //If rank has not changed the received package is liniar dependent              
+		    ranks[rank]++; //Add a linear dependent cnt to this spot
         }
-        catch (SocketException &e)
-        {
-            cerr << e.what() << endl;
-            exit(1);
-        }
+    catch (SocketException &e)
+    {
+        cerr << e.what() << endl;
+        exit(1);
+     }
     }
 
 	transmit_ack(itr, id);
@@ -785,9 +793,16 @@ int credit_base_playNcool()
 	float e1 = E1 / 100;
 	float e2 = E2 / 100;
 	float e3 = E3 / 100;
-
 	bool close_to_source = false;
 
+    int hdr_len = 0;
+ /* Enable overhearing the packets*/
+    if (prom == true)
+    {
+        prom_sock.start("wlan0");
+        hdr_len = RawSocket::hdrLen();
+    }
+/*  calculate the credit value */
 	if ((1-e2) < (1-e1)*(e3))
 	{
 
@@ -803,12 +818,12 @@ int credit_base_playNcool()
 		t = t * (1 - e1);
 	}
 
-	boost::thread th;
+  	boost::thread th;
 	int counter = -100;
 	bool flag_counter = false;
 	receive_ack = boost::thread(&relay::listen_ack, this, iteration);		// listen to ack packets
 	boost::thread run_time = boost::thread(&relay::timer, this);		// listen to ack packets
-
+    int  bytesRcvd = 0; 
     while (!m_decoder->is_complete())
     {
         try
@@ -826,8 +841,15 @@ int credit_base_playNcool()
 				break;
 			}
 
-			int bytesRcvd = sock.recvFrom(recvString, MAXRCVSTRING,
+            if (prom == false)
+                bytesRcvd = sock.recvFrom(recvString, MAXRCVSTRING,
                                           sourceAddress, sourcePort);
+            else
+                bytesRcvd = prom_sock.recvFrom(recvString, MAXRCVSTRING,
+                                          sourceAddress, sourcePort);
+            
+            char *data = (recvString + hdr_len);
+
 
 
 			if (finished == true)
@@ -842,9 +864,9 @@ int credit_base_playNcool()
 			}
 
 
-			sourceID = *((int *)(&recvString[bytesRcvd - 4])); //source ID
-            itr = *((int *)(&recvString[bytesRcvd - 8])); //Iteration
-            seq = *((int *)(&recvString[bytesRcvd - 12])); //Sequence number
+			sourceID = *((int *)(&data[bytesRcvd  - 4])); //source ID
+            itr = *((int *)(&data[bytesRcvd - 8])); //Iteration
+            seq = *((int *)(&data[bytesRcvd - 12])); //Sequence number
 
 			// filter packet if it is not from the source
 			if (sourceID != source)
@@ -861,7 +883,7 @@ int credit_base_playNcool()
 
 
 		    rank = m_decoder->rank();
-		    m_decoder->decode( (uint8_t*)&recvString[0] );
+		    m_decoder->decode( (uint8_t*)&data[0] );
 
             if (flage == true && rank != m_decoder->rank())
 			{
